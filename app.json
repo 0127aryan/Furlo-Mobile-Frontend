@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Furlo Pets",
+    "slug": "furlo-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "furlo",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.furlopets.app",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.furlopets.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E8843A",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#E8843A",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 180
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Furlo uses your photos for pet profile pictures and posts."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false,
+      "reactCompiler": true
+    },
+    "extra": {
+      "apiUrl": "http://10.0.2.2:4000"
+    }
+  }
+}
