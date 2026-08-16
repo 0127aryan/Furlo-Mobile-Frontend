@@ -32,8 +32,9 @@ const OPTIONS: {
 
 export default function JoinSelectScreen() {
   const router = useRouter();
+  const onboardingData = useAuthStore((s) => s.onboardingData);
   const setOnboardingData = useAuthStore((s) => s.setOnboardingData);
-  const [selected, setSelected] = useState<JoinType | null>(null);
+  const [selected, setSelected] = useState<JoinType | null>(onboardingData?.role ?? null);
   const [animating, setAnimating] = useState(false);
 
   async function handleContinue() {

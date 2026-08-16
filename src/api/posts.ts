@@ -1,32 +1,39 @@
 import { apiFetch } from '@/api/client';
 import type { CommentItem, CreatePostBody, Post } from '@/types/api';
 
-export function getFeed(petId?: string) {
+export async function getFeed(petId?: string) {
   const query = petId ? `?petId=${encodeURIComponent(petId)}` : '';
-  return apiFetch<Post[]>(`/posts/feed${query}`);
+  const data = await apiFetch<{ posts: Post[] }>(`/posts/feed${query}`);
+  return data.posts ?? [];
 }
 
 export function getTrendingHashtags() {
-  return apiFetch('/posts/trending-hashtags', { skipAuth: true });
+  return apiFetch<{ name: string; usage_count: number }[]>('/posts/trending-hashtags', { skipAuth: true });
 }
 
-export function createPost(body: CreatePostBody) {
-  return apiFetch('/posts/create', { method: 'POST', json: body });
+export async function createPost(body: CreatePostBody) {
+  const data = await apiFetch<{ post: Post }>('/posts/create', { method: 'POST', json: body });
+  return data.post;
 }
 
 export function likePost(postId: string, petId: string) {
-  return apiFetch(`/posts/${postId}/like`, { method: 'POST', json: { petId } });
+  return apiFetch<{ hasLiked: boolean; likeCount: number }>(`/posts/${postId}/like`, {
+    method: 'POST',
+    json: { petId },
+  });
 }
 
-export function getComments(postId: string) {
-  return apiFetch<CommentItem[]>(`/posts/${postId}/comments`, { skipAuth: true });
+export async function getComments(postId: string) {
+  const data = await apiFetch<{ comments: CommentItem[] }>(`/posts/${postId}/comments`);
+  return data.comments ?? [];
 }
 
-export function createComment(postId: string, petId: string, content: string, parentCommentId?: string) {
-  return apiFetch(`/posts/${postId}/comments`, {
+export async function createComment(postId: string, petId: string, content: string, parentCommentId?: string) {
+  const data = await apiFetch<{ comment: CommentItem }>(`/posts/${postId}/comments`, {
     method: 'POST',
     json: { petId, content, parentCommentId },
   });
+  return data.comment;
 }
 
 export function reportPost(postId: string, reporterPetId: string, reason: string, details?: string) {
