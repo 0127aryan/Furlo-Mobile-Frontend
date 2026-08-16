@@ -16,6 +16,7 @@ import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { buildCompleteOnboardingBody } from '@/lib/onboarding';
+import { roleFromPet } from '@/lib/role';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Community } from '@/types/api';
 
@@ -32,6 +33,8 @@ export default function JoinPacksScreen() {
   const setOnboardingData = useAuthStore((s) => s.setOnboardingData);
   const setUser = useAuthStore((s) => s.setUser);
   const setActivePet = useAuthStore((s) => s.setActivePet);
+
+  const isLover = onboardingData?.role === 'lover';
 
   const [communities, setCommunities] = useState<Community[]>([]);
   const [joined, setJoined] = useState<Set<string>>(new Set());
@@ -65,6 +68,7 @@ export default function JoinPacksScreen() {
         const me = await getMe();
         setUser(me.user);
         setActivePet(me.activePet);
+        useAuthStore.getState().setRole(onboardingData?.role || roleFromPet(me.activePet));
       } catch {
         // Session is still valid; feed gate uses store after getMe when possible.
       }
@@ -90,8 +94,12 @@ export default function JoinPacksScreen() {
             <View style={[styles.barFill, { width: '100%' }]} />
           </View>
 
-          <Text style={styles.title}>Find your pack</Text>
-          <Text style={styles.subtitle}>Join local communities and meet pets near you.</Text>
+          <Text style={styles.title}>{isLover ? 'Follow a few packs' : 'Find your pack'}</Text>
+          <Text style={styles.subtitle}>
+            {isLover
+              ? 'Join communities to see adoption stories, advice, and pets near you.'
+              : 'Join local communities and meet pets near you.'}
+          </Text>
 
           {error ? (
             <View style={styles.errorBanner}>
@@ -175,8 +183,10 @@ export default function JoinPacksScreen() {
         </View>
 
         <Text style={styles.legal}>
-          By completing your setup, you agree to our Pack Guidelines and Privacy Policy. Your Paw
-          Print will be visible to members of the packs you join.
+          By completing your setup, you agree to our Pack Guidelines and Privacy Policy.
+          {isLover
+            ? ' Your profile will be visible to members of the packs you join.'
+            : ' Your Paw Print will be visible to members of the packs you join.'}
         </Text>
       </ScrollView>
 
@@ -186,7 +196,9 @@ export default function JoinPacksScreen() {
             <Ionicons name="sparkles" size={40} color={palette.forest} />
           </View>
           <Text style={styles.successTitle}>Welcome to the Pack!</Text>
-          <Text style={styles.successBody}>Your journey with Furlo begins now. 🐾</Text>
+          <Text style={styles.successBody}>
+            {isLover ? 'The Yard is ready for you. 🐾' : 'Your journey with Furlo begins now. 🐾'}
+          </Text>
         </View>
       </Modal>
 

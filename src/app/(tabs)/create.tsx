@@ -1,5 +1,32 @@
-import { ScreenPlaceholder } from '@/components/ui/ScreenPlaceholder';
+import { useEffect, useState } from 'react';
+import { Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+
+import { getCommunities } from '@/api/auth';
+import { CreatePostForm } from '@/components/feed/CreatePostForm';
+import { palette } from '@/constants/theme';
+import type { Community } from '@/types/api';
 
 export default function CreateScreen() {
-  return <ScreenPlaceholder title="New post" subtitle="Composer: caption, type, community, up to 5 photos." />;
+  const router = useRouter();
+  const [communities, setCommunities] = useState<Community[]>([]);
+
+  useEffect(() => {
+    getCommunities()
+      .then(setCommunities)
+      .catch(() => setCommunities([]));
+  }, []);
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.cream }} edges={['top']}>
+      <CreatePostForm
+        communities={communities}
+        onSuccess={() => {
+          Alert.alert('Posted', 'Your bark is in The Yard.');
+          router.replace('/feed');
+        }}
+      />
+    </SafeAreaView>
+  );
 }

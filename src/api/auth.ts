@@ -1,4 +1,5 @@
 import { apiFetch } from '@/api/client';
+import { roleFromPet } from '@/lib/role';
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '@/lib/secureStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import type {
@@ -42,7 +43,10 @@ export async function login(email: string, password: string) {
   });
   await persistSession(data.session);
   if (data.user) useAuthStore.getState().setUser(data.user);
-  if (data.activePet !== undefined) useAuthStore.getState().setActivePet(data.activePet);
+  if (data.activePet !== undefined) {
+    useAuthStore.getState().setActivePet(data.activePet);
+    useAuthStore.getState().setRole(roleFromPet(data.activePet));
+  }
   return data;
 }
 
@@ -50,6 +54,7 @@ export async function getMe(options?: { skipUnauthorizedClear?: boolean }) {
   const data = await apiFetch<AuthContext>('/auth/me', options);
   useAuthStore.getState().setUser(data.user);
   useAuthStore.getState().setActivePet(data.activePet);
+  useAuthStore.getState().setRole(roleFromPet(data.activePet));
   return data;
 }
 
