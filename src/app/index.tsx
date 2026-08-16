@@ -1,7 +1,6 @@
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { palette } from '@/constants/theme';
+import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function IndexScreen() {
@@ -10,11 +9,7 @@ export default function IndexScreen() {
   const activePet = useAuthStore((s) => s.activePet);
 
   if (!isHydrated) {
-    return (
-      <View style={styles.splash}>
-        <ActivityIndicator color={palette.brown} />
-      </View>
-    );
+    return <FurloLoadingScreen />;
   }
 
   if (user && activePet) {
@@ -27,12 +22,3 @@ export default function IndexScreen() {
 
   return <Redirect href="/join" />;
 }
-
-const styles = StyleSheet.create({
-  splash: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.cream,
-  },
-});

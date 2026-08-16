@@ -5,7 +5,9 @@ import type {
   AuthContext,
   AuthSession,
   CompleteOnboardingBody,
+  Community,
   LoginResponse,
+  Pet,
   SignupResponse,
 } from '@/types/api';
 
@@ -108,7 +110,7 @@ export function checkUsername(username: string) {
 }
 
 export function getCommunities() {
-  return apiFetch('/auth/communities', { skipAuth: true });
+  return apiFetch<Community[]>('/auth/communities', { skipAuth: true });
 }
 
 export function getSpeciesVerbs() {
@@ -116,7 +118,7 @@ export function getSpeciesVerbs() {
 }
 
 export function completeOnboarding(body: CompleteOnboardingBody) {
-  return apiFetch<AuthContext>('/auth/complete-onboarding', {
+  return apiFetch<{ message: string; pet: Pet }>('/auth/complete-onboarding', {
     method: 'POST',
     json: body,
   });

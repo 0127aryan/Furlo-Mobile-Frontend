@@ -19,6 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { checkVerification, getMe, login, resendConfirmation, signup } from '@/api/auth';
 import { GoogleIcon } from '@/components/GoogleIcon';
+import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { getWebmailInfo } from '@/lib/email-helpers';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -164,6 +165,10 @@ export default function JoinScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {loading ? (
+        <FurloLoadingScreen caption={isSignup ? 'Creating your account' : 'Finding your pack'} />
+      ) : (
+        <>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}>
@@ -382,6 +387,8 @@ export default function JoinScreen() {
         </View>
         <Text style={styles.footerCopy}>© 2026 FURLO. Where Pets Belong.</Text>
       </View>
+        </>
+      )}
     </SafeAreaView>
   );
 }
