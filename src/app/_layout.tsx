@@ -5,14 +5,18 @@ import { useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { restoreSession } from '@/api/auth';
+import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { palette } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
 
 SplashScreen.preventAutoHideAsync();
 
+const SPLASH_MIN_MS = 2000;
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [sessionReady, setSessionReady] = useState(false);
+  const [minTimeDone, setMinTimeDone] = useState(false);
   const [fontsLoaded] = useFonts({
     Outfit_400Regular: require('../../assets/fonts/Outfit_400Regular.ttf'),
     Outfit_600SemiBold: require('../../assets/fonts/Outfit_600SemiBold.ttf'),
@@ -25,6 +29,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (!fontsLoaded) return;
 
+    SplashScreen.hideAsync();
+
+    const timer = setTimeout(() => setMinTimeDone(true), SPLASH_MIN_MS);
+
     let cancelled = false;
     restoreSession()
       .catch(() => null)
@@ -32,16 +40,20 @@ export default function RootLayout() {
         if (cancelled) return;
         useAuthStore.getState().setHydrated(true);
         setSessionReady(true);
-        SplashScreen.hideAsync();
       });
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [fontsLoaded]);
 
-  if (!fontsLoaded || !sessionReady) {
+  if (!fontsLoaded) {
     return null;
+  }
+
+  if (!sessionReady || !minTimeDone) {
+    return <FurloLoadingScreen />;
   }
 
   const navTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;

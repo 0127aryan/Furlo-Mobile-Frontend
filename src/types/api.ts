@@ -118,6 +118,15 @@ export interface CompleteOnboardingBody {
   packs?: string[];
 }
 
+export interface Community {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  cover_image_url?: string | null;
+  member_count?: number;
+}
+
 export interface CreatePostBody {
   petId: string;
   communityId?: string | null;
