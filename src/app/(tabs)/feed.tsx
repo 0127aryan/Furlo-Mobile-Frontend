@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { RealtimeChannel } from '@supabase/supabase-js';
+
 import { getCommunities } from '@/api/auth';
 import { getFeed } from '@/api/posts';
 import { CreatePostForm } from '@/components/feed/CreatePostForm';
@@ -20,6 +22,8 @@ import { PostCard } from '@/components/feed/PostCard';
 import { ReportPostModal } from '@/components/feed/ReportPostModal';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { loadSpeciesVerbsFromDB } from '@/lib/petVerbMap';
+import { getAccessToken, getRefreshToken } from '@/lib/secureStore';
+import { getSupabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Community, Post } from '@/types/api';
 
@@ -35,12 +39,15 @@ export default function FeedScreen() {
 
   const petName = activePet?.name || user?.name || 'companion';
 
-  const loadFeed = useCallback(async () => {
+  const loadFeed = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
-      const data = await getFeed(activePet?.id);
-      setPosts(data);
+      const nextPosts = await getFeed(activePet?.id);
+      setPosts(nextPosts);
     } catch {
-      setPosts([]);
+      if (showSpinner) setPosts([]);
+    } finally {
+      if (showSpinner) setLoading(false);
     }
   }, [activePet?.id]);
 
@@ -52,13 +59,123 @@ export default function FeedScreen() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    loadFeed().finally(() => setLoading(false));
-  }, [loadFeed]);
+    loadFeed(true);
+
+    let cancelled = false;
+    let channel: RealtimeChannel | null = null;
+    let client: Awaited<ReturnType<typeof getSupabase>> = null;
+
+    (async () => {
+      const supabase = await getSupabase();
+      client = supabase;
+      if (!supabase || cancelled) return;
+
+      const access_token = await getAccessToken();
+      const refresh_token = await getRefreshToken();
+      if (access_token && refresh_token) {
+        await supabase.auth.setSession({ access_token, refresh_token });
+      }
+      if (cancelled) return;
+
+      channel = supabase
+        .channel('yard-feed', { config: { broadcast: { ack: false, self: true } } })
+        .on('broadcast', { event: 'post' }, ({ payload }) => {
+          const incoming = payload as Post | { post?: Post };
+          const post = 'id' in (incoming || {}) && (incoming as Post).id
+            ? (incoming as Post)
+            : (incoming as { post?: Post }).post;
+          if (!post?.id) return;
+          setPosts((prev) => (prev.some((item) => item.id === post.id) ? prev : [post, ...prev]));
+        })
+        .on('broadcast', { event: 'counts' }, ({ payload }) => {
+          const row = payload as {
+            postId?: string;
+            likeCount?: number;
+            commentCount?: number;
+            likedByPetId?: string | null;
+            unlikedByPetId?: string | null;
+          };
+          if (!row?.postId) return;
+          setPosts((prev) =>
+            prev.map((post) => {
+              if (post.id !== row.postId) return post;
+              return {
+                ...post,
+                like_count: row.likeCount !== undefined ? row.likeCount : post.like_count,
+                comment_count: row.commentCount !== undefined ? row.commentCount : post.comment_count,
+                hasLiked:
+                  row.likedByPetId === activePet?.id
+                    ? true
+                    : row.unlikedByPetId === activePet?.id
+                      ? false
+                      : post.hasLiked,
+              };
+            })
+          );
+        })
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'posts' },
+          (payload) => {
+            const row = payload.new as { id: string; like_count?: number; comment_count?: number };
+            if (row?.id) {
+              setPosts((prev) =>
+                prev.map((post) =>
+                  post.id === row.id
+                    ? {
+                        ...post,
+                        like_count: row.like_count !== undefined ? row.like_count : post.like_count,
+                        comment_count:
+                          row.comment_count !== undefined
+                            ? Math.max(post.comment_count || 0, row.comment_count)
+                            : post.comment_count,
+                      }
+                    : post
+                )
+              );
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'likes' },
+          (payload) => {
+            const row = (payload.new || payload.old) as { post_id?: string; pet_id?: string };
+            if (row?.pet_id === activePet?.id && row.post_id) {
+              setPosts((prev) =>
+                prev.map((post) =>
+                  post.id === row.post_id
+                    ? { ...post, hasLiked: payload.eventType === 'INSERT' }
+                    : post
+                )
+              );
+            }
+          }
+        )
+        .subscribe();
+
+      if (cancelled) {
+        supabase.removeChannel(channel);
+        channel = null;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (channel && client) client.removeChannel(channel);
+    };
+  }, [activePet?.id]);
+
+  const patchPost = useCallback(
+    (postId: string, patch: Partial<Pick<Post, 'like_count' | 'comment_count' | 'hasLiked'>>) => {
+      setPosts((prev) => prev.map((post) => (post.id === postId ? { ...post, ...patch } : post)));
+    },
+    []
+  );
 
   async function onRefresh() {
     setRefreshing(true);
-    await loadFeed();
+    await loadFeed(false);
     setRefreshing(false);
   }
 
@@ -131,8 +248,8 @@ export default function FeedScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} onReport={setReportingPostId} />
+            {posts.filter((post) => post?.id).map((post) => (
+              <PostCard key={post.id} post={post} onReport={setReportingPostId} onPatch={patchPost} />
             ))}
           </View>
         )}
