@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,48 +24,77 @@ import type { CommentItem, Post } from '@/types/api';
 type Props = {
   post: Post;
   onReport: (postId: string) => void;
+  onPatch: (postId: string, patch: Partial<Pick<Post, 'like_count' | 'comment_count' | 'hasLiked'>>) => void;
 };
 
 const CARD_GUTTER = 32;
 
-export function PostCard({ post, onReport }: Props) {
-  const activePet = useAuthStore((s) => s.activePet);
-  const petSpecies = post.pets?.species || post.pets?.pet_type || 'dog';
-  const verbPlural = getCommentVerbPlural(petSpecies, post.comment_count || 0);
-  const verbSingular = getCommentVerb(petSpecies);
+function firstRecord<T>(value: T | T[] | null | undefined): T | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value ?? undefined;
+}
 
-  const [hasLiked, setHasLiked] = useState(!!post.hasLiked);
-  const [likeCount, setLikeCount] = useState(post.like_count || 0);
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+export function PostCard({ post, onReport, onPatch }: Props) {
+  const activePet = useAuthStore((s) => s.activePet);
+  const pet = firstRecord(post.pets);
+  const community = firstRecord(post.communities);
+  const petSpecies = pet?.species || pet?.pet_type || 'dog';
+  const hasLiked = !!post.hasLiked;
+  const likeCount = post.like_count || 0;
   const [showMenu, setShowMenu] = useState(false);
   const [mediaIndex, setMediaIndex] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<CommentItem[]>([]);
-  const [commentCount, setCommentCount] = useState(post.comment_count || 0);
   const [commentInput, setCommentInput] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const prevCommentCount = useRef(post.comment_count || 0);
 
-  const media = post.media || [];
+  const commentCount = Math.max(post.comment_count || 0, comments.length);
+  const verbPlural = getCommentVerbPlural(petSpecies, commentCount);
+  const verbSingular = getCommentVerb(petSpecies);
+
+  useEffect(() => {
+    const nextCount = post.comment_count || 0;
+    const grew = nextCount > prevCommentCount.current;
+    prevCommentCount.current = nextCount;
+    if (showComments && grew) {
+      getComments(post.id)
+        .then((list) => {
+          setComments(list);
+          if (list.length > nextCount) {
+            onPatch(post.id, { comment_count: list.length });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [post.comment_count, post.id, showComments, onPatch]);
+
+  const media = Array.isArray(post.media) ? post.media.filter((item) => item?.id && item?.media_url) : [];
   const cardWidth = Dimensions.get('window').width - CARD_GUTTER;
-  const authorName = post.pets?.name || 'Pet';
-  const authorHandle = post.pets?.username ? `@${post.pets.username}` : '';
-  const rawAvatar = post.pets?.profile_image_url || '';
+  const authorName = pet?.name || 'Pet';
+  const authorHandle = pet?.username ? `@${pet.username}` : '';
+  const rawAvatar = asString(pet?.profile_image_url);
   const authorAvatar = rawAvatar.includes('images.unsplash.com') ? '' : rawAvatar;
-  const communityName = post.communities?.name;
+  const communityName = community?.name;
 
   async function handleToggleLike() {
     if (!activePet?.id) return;
     const prevLiked = hasLiked;
     const prevCount = likeCount;
-    setHasLiked(!prevLiked);
-    setLikeCount(prevLiked ? prevCount - 1 : prevCount + 1);
+    onPatch(post.id, {
+      hasLiked: !prevLiked,
+      like_count: prevLiked ? Math.max(0, prevCount - 1) : prevCount + 1,
+    });
     try {
       const data = await likePost(post.id, activePet.id);
-      setHasLiked(data.hasLiked);
-      setLikeCount(data.likeCount);
+      onPatch(post.id, { hasLiked: data.hasLiked, like_count: data.likeCount });
     } catch {
-      setHasLiked(prevLiked);
-      setLikeCount(prevCount);
+      onPatch(post.id, { hasLiked: prevLiked, like_count: prevCount });
     }
   }
 
@@ -75,7 +104,11 @@ export function PostCard({ post, onReport }: Props) {
     if (next && comments.length === 0) {
       setLoadingComments(true);
       try {
-        setComments(await getComments(post.id));
+        const list = await getComments(post.id);
+        setComments(list);
+        if (list.length !== (post.comment_count || 0)) {
+          onPatch(post.id, { comment_count: list.length });
+        }
       } catch {
         // Keep the thread empty if fetch fails.
       } finally {
@@ -89,10 +122,12 @@ export function PostCard({ post, onReport }: Props) {
     setSubmittingComment(true);
     const content = commentInput.trim();
     try {
-      const comment = await createComment(post.id, activePet.id, content);
-      if (comment) {
-        setComments((prev) => [...prev, comment]);
-        setCommentCount((prev) => prev + 1);
+      const data = await createComment(post.id, activePet.id, content);
+      if (data.comment) {
+        setComments((prev) => [...prev, data.comment]);
+        onPatch(post.id, {
+          comment_count: data.commentCount ?? Math.max(post.comment_count || 0, comments.length) + 1,
+        });
         setCommentInput('');
       }
     } catch (err) {

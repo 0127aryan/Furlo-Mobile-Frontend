@@ -29,11 +29,11 @@ export async function getComments(postId: string) {
 }
 
 export async function createComment(postId: string, petId: string, content: string, parentCommentId?: string) {
-  const data = await apiFetch<{ comment: CommentItem }>(`/posts/${postId}/comments`, {
+  const data = await apiFetch<{ comment: CommentItem; commentCount?: number }>(`/posts/${postId}/comments`, {
     method: 'POST',
     json: { petId, content, parentCommentId },
   });
-  return data.comment;
+  return data;
 }
 
 export function reportPost(postId: string, reporterPetId: string, reason: string, details?: string) {

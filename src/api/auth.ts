@@ -143,3 +143,9 @@ export function checkVerification(email: string) {
     { skipAuth: true }
   );
 }
+
+export function getSupabaseConfig() {
+  return apiFetch<{ supabaseUrl: string; supabaseAnonKey: string }>('/auth/supabase-config', {
+    skipAuth: true,
+  });
+}
