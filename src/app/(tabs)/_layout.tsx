@@ -1,14 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
+import { useEffect } from 'react';
 
 import { AppFonts, TapTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { startFollowRealtime } from '@/lib/subscribeFollowEvents';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function TabsLayout() {
   const theme = useTheme();
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
+
+  useEffect(() => {
+    if (user) startFollowRealtime();
+  }, [user]);
 
   if (isHydrated && !user) {
     return <Redirect href="/join" />;
@@ -62,7 +68,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'My Paw Print',
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} />,
         }}
       />

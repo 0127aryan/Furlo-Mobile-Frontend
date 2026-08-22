@@ -16,6 +16,31 @@ export interface Pet {
   city: string;
   personality_tags: string[];
   pet_type?: string;
+  gender?: string;
+  bio?: string;
+  created_at?: string;
+  users?: {
+    id: string;
+    name?: string;
+    email?: string;
+  };
+}
+
+export interface PetProfileStats {
+  barksCount: number;
+  packMembersCount: number;
+  followingCount: number;
+  treatsCount: number;
+  isFollowing?: boolean;
+}
+
+export interface PackMember {
+  id: string;
+  name: string;
+  username: string;
+  breed: string;
+  city?: string;
+  profile_image_url?: string;
 }
 
 export interface OnboardingData {
@@ -126,6 +151,19 @@ export interface Community {
   description?: string | null;
   cover_image_url?: string | null;
   member_count?: number;
+}
+
+export interface WagItem {
+  id: string;
+  created_at: string;
+  message?: string | null;
+  sender: {
+    id: string;
+    name: string;
+    username: string;
+    breed?: string;
+    profile_image_url?: string | null;
+  };
 }
 
 export interface CreatePostBody {

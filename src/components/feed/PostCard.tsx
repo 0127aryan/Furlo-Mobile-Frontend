@@ -14,6 +14,8 @@ import {
   View,
 } from 'react-native';
 
+import { useRouter } from 'expo-router';
+
 import { createComment, getComments, likePost } from '@/api/posts';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { formatRelativeTime } from '@/lib/formatTime';
@@ -24,7 +26,7 @@ import type { CommentItem, Post } from '@/types/api';
 type Props = {
   post: Post;
   onReport: (postId: string) => void;
-  onPatch: (postId: string, patch: Partial<Pick<Post, 'like_count' | 'comment_count' | 'hasLiked'>>) => void;
+  onPatch?: (postId: string, patch: Partial<Pick<Post, 'like_count' | 'comment_count' | 'hasLiked'>>) => void;
 };
 
 const CARD_GUTTER = 32;
@@ -39,6 +41,7 @@ function asString(value: unknown): string {
 }
 
 export function PostCard({ post, onReport, onPatch }: Props) {
+  const router = useRouter();
   const activePet = useAuthStore((s) => s.activePet);
   const pet = firstRecord(post.pets);
   const community = firstRecord(post.communities);
@@ -67,7 +70,7 @@ export function PostCard({ post, onReport, onPatch }: Props) {
         .then((list) => {
           setComments(list);
           if (list.length > nextCount) {
-            onPatch(post.id, { comment_count: list.length });
+            onPatch?.(post.id, { comment_count: list.length });
           }
         })
         .catch(() => {});
@@ -86,15 +89,15 @@ export function PostCard({ post, onReport, onPatch }: Props) {
     if (!activePet?.id) return;
     const prevLiked = hasLiked;
     const prevCount = likeCount;
-    onPatch(post.id, {
+    onPatch?.(post.id, {
       hasLiked: !prevLiked,
       like_count: prevLiked ? Math.max(0, prevCount - 1) : prevCount + 1,
     });
     try {
       const data = await likePost(post.id, activePet.id);
-      onPatch(post.id, { hasLiked: data.hasLiked, like_count: data.likeCount });
+      onPatch?.(post.id, { hasLiked: data.hasLiked, like_count: data.likeCount });
     } catch {
-      onPatch(post.id, { hasLiked: prevLiked, like_count: prevCount });
+      onPatch?.(post.id, { hasLiked: prevLiked, like_count: prevCount });
     }
   }
 
@@ -107,7 +110,7 @@ export function PostCard({ post, onReport, onPatch }: Props) {
         const list = await getComments(post.id);
         setComments(list);
         if (list.length !== (post.comment_count || 0)) {
-          onPatch(post.id, { comment_count: list.length });
+          onPatch?.(post.id, { comment_count: list.length });
         }
       } catch {
         // Keep the thread empty if fetch fails.
@@ -125,7 +128,7 @@ export function PostCard({ post, onReport, onPatch }: Props) {
       const data = await createComment(post.id, activePet.id, content);
       if (data.comment) {
         setComments((prev) => [...prev, data.comment]);
-        onPatch(post.id, {
+        onPatch?.(post.id, {
           comment_count: data.commentCount ?? Math.max(post.comment_count || 0, comments.length) + 1,
         });
         setCommentInput('');
@@ -151,7 +154,11 @@ export function PostCard({ post, onReport, onPatch }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <View style={styles.authorRow}>
+        <Pressable
+          style={styles.authorRow}
+          onPress={() => {
+            if (pet?.id) router.push(`/pet/${pet.id}`);
+          }}>
           {authorAvatar ? (
             <Image source={{ uri: authorAvatar }} style={styles.avatar} />
           ) : (
@@ -175,7 +182,7 @@ export function PostCard({ post, onReport, onPatch }: Props) {
               {formatRelativeTime(post.created_at)}
             </Text>
           </View>
-        </View>
+        </Pressable>
         <Pressable onPress={() => setShowMenu((v) => !v)} hitSlop={8} style={styles.menuBtn}>
           <Ionicons name="ellipsis-horizontal" size={20} color={palette.faded} />
         </Pressable>
