@@ -16,6 +16,7 @@ export interface Pet {
   city: string;
   personality_tags: string[];
   pet_type?: string;
+  species?: string;
   gender?: string;
   bio?: string;
   created_at?: string;
@@ -144,14 +145,54 @@ export interface CompleteOnboardingBody {
   packs?: string[];
 }
 
+export type CommunityStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Community {
   id: string;
   name: string;
   slug: string;
   description?: string | null;
   cover_image_url?: string | null;
+  logo_image_url?: string | null;
   member_count?: number;
+  category?: string | null;
+  city?: string | null;
+  status?: CommunityStatus | string | null;
+  is_approved?: boolean;
+  is_verified?: boolean;
+  joined?: boolean;
+  is_joined?: boolean;
+  trending?: boolean;
+  sample_members?: {
+    id: string;
+    name: string;
+    username?: string;
+    profile_image_url?: string | null;
+  }[];
+  rules?: string[];
 }
+
+export interface CommunityMember {
+  id: string;
+  name: string;
+  username: string;
+  breed?: string;
+  city?: string;
+  profile_image_url?: string | null;
+}
+
+export interface CommunityHub {
+  community: Community;
+  joined: boolean;
+  isJoined?: boolean;
+  members: CommunityMember[];
+  admins: CommunityMember[];
+  posts?: Post[];
+  announcement: { title: string; content: string } | null;
+  rules: string[];
+}
+
+export type PackCategory = string;
 
 export interface WagItem {
   id: string;
