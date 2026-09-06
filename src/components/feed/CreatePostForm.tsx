@@ -16,6 +16,7 @@ import {
 import { createPost } from '@/api/posts';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { compressImage } from '@/lib/compressImage';
+import { usePostVerb } from '@/hooks/usePostVerb';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Community, Post } from '@/types/api';
 
@@ -30,22 +31,24 @@ const POST_TYPES: { id: PostType; label: string; icon: keyof typeof Ionicons.gly
 
 type Props = {
   communities: Community[];
+  lockedCommunityId?: string;
   onSuccess: (post: Post) => void;
   onCancel?: () => void;
 };
 
-export function CreatePostForm({ communities, onSuccess, onCancel }: Props) {
+export function CreatePostForm({ communities, lockedCommunityId, onSuccess, onCancel }: Props) {
   const activePet = useAuthStore((s) => s.activePet);
   const user = useAuthStore((s) => s.user);
   const [caption, setCaption] = useState('');
   const [postType, setPostType] = useState<PostType>('regular');
-  const [communityId, setCommunityId] = useState('');
+  const [communityId, setCommunityId] = useState(lockedCommunityId || '');
   const [mediaFiles, setMediaFiles] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const handleName = activePet?.username
     ? `@${activePet.username}`
     : user?.email?.split('@')[0] || '@user';
+  const { verb } = usePostVerb(activePet);
 
   async function pickImages() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -76,7 +79,7 @@ export function CreatePostForm({ communities, onSuccess, onCancel }: Props) {
     try {
       const post = await createPost({
         petId: activePet.id,
-        communityId: communityId || null,
+        communityId: (lockedCommunityId || communityId) || null,
         caption,
         postType,
         mediaData: mediaFiles,
@@ -111,22 +114,26 @@ export function CreatePostForm({ communities, onSuccess, onCancel }: Props) {
         ) : null}
       </View>
 
-      <Text style={styles.label}>POST TO</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pills}>
-        <Pressable
-          onPress={() => setCommunityId('')}
-          style={[styles.pill, !communityId && styles.pillOn]}>
-          <Text style={[styles.pillText, !communityId && styles.pillTextOn]}>Public Yard</Text>
-        </Pressable>
-        {communities.map((c) => {
-          const on = communityId === c.id;
-          return (
-            <Pressable key={c.id} onPress={() => setCommunityId(c.id)} style={[styles.pill, on && styles.pillOn]}>
-              <Text style={[styles.pillText, on && styles.pillTextOn]}>{c.name}</Text>
+      {!lockedCommunityId ? (
+        <>
+          <Text style={styles.label}>POST TO</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pills}>
+            <Pressable
+              onPress={() => setCommunityId('')}
+              style={[styles.pill, !communityId && styles.pillOn]}>
+              <Text style={[styles.pillText, !communityId && styles.pillTextOn]}>Public Yard</Text>
             </Pressable>
-          );
-        })}
-      </ScrollView>
+            {communities.map((c) => {
+              const on = communityId === c.id;
+              return (
+                <Pressable key={c.id} onPress={() => setCommunityId(c.id)} style={[styles.pill, on && styles.pillOn]}>
+                  <Text style={[styles.pillText, on && styles.pillTextOn]}>{c.name}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </>
+      ) : null}
 
       <Text style={styles.label}>POST TYPE</Text>
       <View style={styles.pillsWrap}>
@@ -183,7 +190,7 @@ export function CreatePostForm({ communities, onSuccess, onCancel }: Props) {
         {submitting ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.ctaLabel}>Post Bark</Text>
+          <Text style={styles.ctaLabel}>Post {verb}</Text>
         )}
       </Pressable>
     </ScrollView>

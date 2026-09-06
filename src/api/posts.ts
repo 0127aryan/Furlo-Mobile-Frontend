@@ -1,9 +1,12 @@
 import { apiFetch } from '@/api/client';
 import type { CommentItem, CreatePostBody, Post } from '@/types/api';
 
-export async function getFeed(petId?: string) {
-  const query = petId ? `?petId=${encodeURIComponent(petId)}` : '';
-  const data = await apiFetch<{ posts: Post[] }>(`/posts/feed${query}`);
+export async function getFeed(petId?: string, communityId?: string) {
+  const search = new URLSearchParams();
+  if (petId) search.set('petId', petId);
+  if (communityId) search.set('communityId', communityId);
+  const query = search.toString();
+  const data = await apiFetch<{ posts: Post[] }>(`/posts/feed${query ? `?${query}` : ''}`);
   return data.posts ?? [];
 }
 

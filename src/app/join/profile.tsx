@@ -199,7 +199,7 @@ export default function JoinProfileScreen() {
                 />
 
                 <View style={styles.labelRow}>
-                  <Text style={styles.label}>Pack Name</Text>
+                  <Text style={styles.label}>Pet Username</Text>
                   <Text style={styles.optionalInline}>(optional)</Text>
                 </View>
                 <View>
@@ -325,7 +325,7 @@ export default function JoinProfileScreen() {
                   style={styles.input}
                 />
                 <View style={styles.labelRow}>
-                  <Text style={styles.label}>Pack Name</Text>
+                  <Text style={styles.label}>Username</Text>
                   <Text style={styles.optionalInline}>(optional)</Text>
                 </View>
                 <View>

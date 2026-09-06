@@ -77,6 +77,7 @@ export default function RootLayout() {
         <Stack.Screen name="forgot-password" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="pet/[id]" />
+        <Stack.Screen name="community/[slug]" />
       </Stack>
     </ThemeProvider>
   );

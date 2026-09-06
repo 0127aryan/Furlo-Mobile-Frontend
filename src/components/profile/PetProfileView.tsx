@@ -1,27 +1,32 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { followPet, getFollowingPets, getPackMembers, getPetProfile, sendWag } from '@/api/auth';
+import { followPet, getCommunities, getFollowingPets, getPackMembers, getPetProfile, sendWag } from '@/api/auth';
+import { CreatePostForm } from '@/components/feed/CreatePostForm';
 import { PostCard } from '@/components/feed/PostCard';
 import { ReportPostModal } from '@/components/feed/ReportPostModal';
 import { EditPetProfileModal } from '@/components/profile/EditPetProfileModal';
 import { PackMembersModal } from '@/components/profile/PackMembersModal';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { startFollowRealtime } from '@/lib/subscribeFollowEvents';
+import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
+import { getPetSpecies, getPostVerb, getPostVerbPlural } from '@/lib/petVerbMap';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePetSocialStore } from '@/store/usePetSocialStore';
-import type { PackMember, Pet, PetProfileStats, Post } from '@/types/api';
+import type { Community, PackMember, Pet, PetProfileStats, Post } from '@/types/api';
 
 type TabId = 'barks' | 'treats' | 'info';
 
@@ -52,6 +57,8 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>('barks');
   const [editOpen, setEditOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [communities, setCommunities] = useState<Community[]>([]);
   const [reportingPostId, setReportingPostId] = useState<string | null>(null);
   const [following, setFollowing] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
@@ -64,6 +71,8 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
       (user?.id && pet?.owner_id && user.id === pet.owner_id) ||
       (user?.id && pet?.users?.id && user.id === pet.users.id)
   );
+  const petIdRef = useRef(activePet?.id);
+  petIdRef.current = activePet?.id;
 
   const load = useCallback(async (silent = false) => {
     if (!silent) {
@@ -107,6 +116,24 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
     startFollowRealtime();
     load();
   }, [load]);
+
+  useEffect(() => {
+    return subscribeYardFeed({
+      onCounts: (payload) => {
+        setPosts((prev) => applyFeedCounts(prev, payload, petIdRef.current));
+      },
+      onPostRow: (row) => {
+        setPosts((prev) => applyPostRowCounts(prev, row));
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    getCommunities()
+      .then(setCommunities)
+      .catch(() => setCommunities([]));
+  }, [isOwner]);
 
   useFocusEffect(
     useCallback(() => {
@@ -292,6 +319,15 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
             )}
           </View>
 
+          {isOwner ? (
+            <View style={styles.postBtnRow}>
+              <Pressable onPress={() => setCreateOpen(true)} style={styles.postBtn}>
+                <Ionicons name="add-circle-outline" size={16} color="#fff" />
+                <Text style={styles.postLabel}>Post {getPostVerb(getPetSpecies(pet))}</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
           <View style={styles.nameRow}>
             <Text style={styles.name}>{pet.name}</Text>
             <View style={styles.breedChip}>
@@ -321,7 +357,7 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
           ) : null}
 
           <View style={styles.stats}>
-            <Stat value={stats.barksCount} label="Barks" />
+            <Stat value={stats.barksCount} label={`${getPostVerbPlural(getPetSpecies(pet), 2)}`} />
             <View style={styles.statDivider} />
             <Stat
               value={packMembersCount}
@@ -343,7 +379,11 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
             {(['barks', 'treats', 'info'] as TabId[]).map((id) => (
               <Pressable key={id} onPress={() => setTab(id)} style={styles.tab}>
                 <Text style={[styles.tabLabel, tab === id && styles.tabLabelActive]}>
-                  {id === 'barks' ? `Barks (${posts.length})` : id === 'treats' ? 'Treats Received' : 'Paw Print Info'}
+                  {id === 'barks'
+                    ? `${getPostVerbPlural(getPetSpecies(pet), 2)} (${posts.length})`
+                    : id === 'treats'
+                      ? 'Treats Received'
+                      : 'Paw Print Info'}
                 </Text>
                 {tab === id ? <View style={styles.tabUnderline} /> : null}
               </Pressable>
@@ -366,11 +406,15 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
               <Text style={styles.emptyTitle}>
                 {pet.name} has received {stats.treatsCount} treats!
               </Text>
-              <Text style={styles.emptyBody}>Keep barking to collect more treats from the pack.</Text>
+              <Text style={styles.emptyBody}>
+                Keep {getPostVerb(getPetSpecies(pet)).toLowerCase()}ing to collect more treats from the pack.
+              </Text>
             </View>
           ) : posts.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyBody}>{pet.name} has not posted any barks yet 🐾</Text>
+              <Text style={styles.emptyBody}>
+                {pet.name} has not posted any {getPostVerbPlural(getPetSpecies(pet), 2).toLowerCase()} yet 🐾
+              </Text>
             </View>
           ) : (
             <View style={styles.list}>
@@ -400,6 +444,20 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
         visible={!!reportingPostId}
         onClose={() => setReportingPostId(null)}
       />
+
+      <Modal visible={createOpen} animationType="slide" onRequestClose={() => setCreateOpen(false)}>
+        <SafeAreaView style={styles.createSafe}>
+          <CreatePostForm
+            communities={communities}
+            onCancel={() => setCreateOpen(false)}
+            onSuccess={(post) => {
+              setPosts((prev) => [post, ...prev]);
+              setStats((prev) => ({ ...prev, barksCount: prev.barksCount + 1 }));
+              setCreateOpen(false);
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
 
       <EditPetProfileModal
         visible={editOpen}
@@ -477,7 +535,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 0,
   },
   identity: { paddingHorizontal: 16, marginTop: -48 },
-  avatarRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12 },
+  avatarRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8 },
   avatar: {
     width: 104,
     height: 104,
@@ -521,6 +579,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   editLabel: { fontFamily: AppFonts.bodySemi, fontSize: 13, color: '#011E14' },
+  postBtnRow: { alignItems: 'flex-end', marginBottom: 12 },
+  postBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: palette.amber,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minHeight: TapTarget,
+  },
+  postLabel: { fontFamily: AppFonts.bodySemi, fontSize: 13, color: '#fff' },
+  createSafe: { flex: 1, backgroundColor: palette.cream },
   actions: { flexDirection: 'row', gap: 8, marginBottom: 8, flexShrink: 1 },
   followBtn: {
     flexDirection: 'row',

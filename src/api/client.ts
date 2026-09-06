@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 import {
   clearTokens,
@@ -8,12 +9,43 @@ import {
 } from '@/lib/secureStore';
 import { useAuthStore } from '@/store/useAuthStore';
 
+const API_PORT = 4000;
+
+function stripTrailingSlash(url: string): string {
+  return url.replace(/\/$/, '');
+}
+
+/** Metro’s LAN host, e.g. `192.168.29.122:8081` → `http://192.168.29.122:4000`. */
+function apiUrlFromExpoHost(): string | undefined {
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (!hostUri) return undefined;
+
+  const hostname = hostUri.includes('://')
+    ? new URL(hostUri).hostname
+    : hostUri.split(':')[0];
+
+  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
+    return undefined;
+  }
+
+  return `http://${hostname}:${API_PORT}`;
+}
+
 function getApiBaseUrl(): string {
-  return (
-    process.env.EXPO_PUBLIC_API_URL ||
-    (Constants.expoConfig?.extra?.apiUrl as string | undefined) ||
-    'http://10.0.2.2:4000'
-  );
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (fromEnv) return stripTrailingSlash(fromEnv);
+
+  // Real phones cannot reach 10.0.2.2; use the same LAN IP Metro is serving on.
+  if (Constants.isDevice) {
+    const fromHost = apiUrlFromExpoHost();
+    if (fromHost) return fromHost;
+  }
+
+  const extra = Constants.expoConfig?.extra?.apiUrl as string | undefined;
+  if (extra) return stripTrailingSlash(extra);
+
+  if (Platform.OS === 'android') return `http://10.0.2.2:${API_PORT}`;
+  return `http://localhost:${API_PORT}`;
 }
 
 export class ApiError extends Error {

@@ -45,7 +45,7 @@ export function PostCard({ post, onReport, onPatch }: Props) {
   const activePet = useAuthStore((s) => s.activePet);
   const pet = firstRecord(post.pets);
   const community = firstRecord(post.communities);
-  const petSpecies = pet?.species || pet?.pet_type || 'dog';
+  const petSpecies = pet?.species || pet?.pet_type;
   const hasLiked = !!post.hasLiked;
   const likeCount = post.like_count || 0;
   const [showMenu, setShowMenu] = useState(false);

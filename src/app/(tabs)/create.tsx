@@ -6,10 +6,14 @@ import { useRouter } from 'expo-router';
 import { getCommunities } from '@/api/auth';
 import { CreatePostForm } from '@/components/feed/CreatePostForm';
 import { palette } from '@/constants/theme';
+import { usePostVerb } from '@/hooks/usePostVerb';
+import { useAuthStore } from '@/store/useAuthStore';
 import type { Community } from '@/types/api';
 
 export default function CreateScreen() {
   const router = useRouter();
+  const activePet = useAuthStore((s) => s.activePet);
+  const { verbLower } = usePostVerb(activePet);
   const [communities, setCommunities] = useState<Community[]>([]);
 
   useEffect(() => {
@@ -23,7 +27,7 @@ export default function CreateScreen() {
       <CreatePostForm
         communities={communities}
         onSuccess={() => {
-          Alert.alert('Posted', 'Your bark is in The Yard.');
+          Alert.alert('Posted', `Your ${verbLower} is in The Yard.`);
           router.replace('/feed');
         }}
       />

@@ -3,6 +3,7 @@ import { Redirect, Tabs } from 'expo-router';
 import { useEffect } from 'react';
 
 import { AppFonts, TapTarget } from '@/constants/theme';
+import { usePostVerb } from '@/hooks/usePostVerb';
 import { useTheme } from '@/hooks/use-theme';
 import { startFollowRealtime } from '@/lib/subscribeFollowEvents';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -11,6 +12,8 @@ export default function TabsLayout() {
   const theme = useTheme();
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
+  const activePet = useAuthStore((s) => s.activePet);
+  const { verb } = usePostVerb(activePet);
 
   useEffect(() => {
     if (user) startFollowRealtime();
@@ -40,28 +43,28 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="feed"
         options={{
-          title: 'Feed',
+          title: 'The Yard',
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="packs"
         options={{
-          title: 'Packs',
+          title: 'Discover Packs',
           tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="create"
         options={{
-          title: 'Post',
+          title: `Post ${verb}`,
           tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Alerts',
+          title: 'Notifications',
           tabBarIcon: ({ color, size }) => <Ionicons name="notifications-outline" color={color} size={size} />,
         }}
       />
