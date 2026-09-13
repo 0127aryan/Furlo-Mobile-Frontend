@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,6 +19,7 @@ import { getFeed } from '@/api/posts';
 import { CreatePostForm } from '@/components/feed/CreatePostForm';
 import { PostCard } from '@/components/feed/PostCard';
 import { ReportPostModal } from '@/components/feed/ReportPostModal';
+import { AskQuestionBottomSheet } from '@/components/qa/AskQuestionBottomSheet';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { usePostVerb } from '@/hooks/usePostVerb';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
@@ -25,6 +27,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import type { Community, Post } from '@/types/api';
 
 export default function FeedScreen() {
+  const router = useRouter();
   const activePet = useAuthStore((s) => s.activePet);
   const user = useAuthStore((s) => s.user);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -32,6 +35,7 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [reportingPostId, setReportingPostId] = useState<string | null>(null);
 
   const petName = activePet?.name || user?.name || 'companion';
@@ -98,9 +102,15 @@ export default function FeedScreen() {
             <Ionicons name="paw" size={22} color={palette.amber} />
             <Text style={styles.brand}>furlo</Text>
           </View>
-          <Pressable onPress={() => setCreateOpen(true)} style={styles.headerCta}>
-            <Text style={styles.headerCtaLabel}>+ Post {verb}</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable onPress={() => router.push('/qa')} style={styles.qaBtn}>
+              <Ionicons name="help-circle-outline" size={16} color={palette.evergreenSoft} />
+              <Text style={styles.qaBtnLabel}>Q&A</Text>
+            </Pressable>
+            <Pressable onPress={() => setCreateOpen(true)} style={styles.headerCta}>
+              <Text style={styles.headerCtaLabel}>+ Post {verb}</Text>
+            </Pressable>
+          </View>
         </View>
 
         <Pressable style={styles.composer} onPress={() => setCreateOpen(true)}>
@@ -121,10 +131,10 @@ export default function FeedScreen() {
               <Ionicons name="image-outline" size={18} color={palette.amber} />
               <Text style={styles.quickLabel}>Photo</Text>
             </View>
-            <View style={styles.quick}>
+            <Pressable style={styles.quick} onPress={() => setAskOpen(true)}>
               <Ionicons name="help-circle-outline" size={18} color={palette.forest} />
               <Text style={styles.quickLabel}>Question</Text>
-            </View>
+            </Pressable>
             <View style={styles.quick}>
               <Ionicons name="bulb-outline" size={18} color={palette.brown} />
               <Text style={styles.quickLabel}>Tip</Text>
@@ -182,6 +192,15 @@ export default function FeedScreen() {
         visible={!!reportingPostId}
         onClose={() => setReportingPostId(null)}
       />
+
+      <AskQuestionBottomSheet
+        visible={askOpen}
+        onClose={() => setAskOpen(false)}
+        onSuccess={(post) => {
+          setPosts((prev) => [post, ...prev]);
+          setAskOpen(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -192,6 +211,19 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brand: { fontFamily: AppFonts.heading, fontSize: 20, color: '#163328' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  qaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#EDE8E1',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  qaBtnLabel: { fontFamily: AppFonts.bodySemi, fontSize: 12, color: palette.evergreenSoft },
   headerCta: {
     backgroundColor: palette.amber,
     paddingHorizontal: 14,
