@@ -103,9 +103,9 @@ export default function FeedScreen() {
             <Text style={styles.brand}>furlo</Text>
           </View>
           <View style={styles.headerActions}>
-            <Pressable onPress={() => router.push('/qa')} style={styles.qaBtn}>
-              <Ionicons name="help-circle-outline" size={16} color={palette.evergreenSoft} />
-              <Text style={styles.qaBtnLabel}>Q&A</Text>
+            <Pressable onPress={() => router.push('/notifications')} style={styles.notifBtn}>
+              <Ionicons name="notifications-outline" size={16} color={palette.evergreenSoft} />
+              <Text style={styles.notifBtnLabel}>Alerts</Text>
             </Pressable>
             <Pressable onPress={() => setCreateOpen(true)} style={styles.headerCta}>
               <Text style={styles.headerCtaLabel}>+ Post {verb}</Text>
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brand: { fontFamily: AppFonts.heading, fontSize: 20, color: '#163328' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  qaBtn: {
+  notifBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
   },
-  qaBtnLabel: { fontFamily: AppFonts.bodySemi, fontSize: 12, color: palette.evergreenSoft },
+  notifBtnLabel: { fontFamily: AppFonts.bodySemi, fontSize: 12, color: palette.evergreenSoft },
   headerCta: {
     backgroundColor: palette.amber,
     paddingHorizontal: 14,

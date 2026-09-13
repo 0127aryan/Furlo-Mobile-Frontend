@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { createPost } from '@/api/posts';
+import { ScreenBackButton } from '@/components/common/ScreenBackButton';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { compressImage } from '@/lib/compressImage';
 import { usePostVerb } from '@/hooks/usePostVerb';
@@ -101,17 +102,13 @@ export function CreatePostForm({ communities, lockedCommunityId, onSuccess, onCa
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
       <View style={styles.headerRow}>
-        <View>
+        {onCancel ? <ScreenBackButton onPress={onCancel} /> : <View style={styles.backSpacer} />}
+        <View style={styles.headerText}>
           <Text style={styles.title}>Create a Post</Text>
           <Text style={styles.sub}>
             Posting as <Text style={styles.as}>{handleName}</Text>
           </Text>
         </View>
-        {onCancel ? (
-          <Pressable onPress={onCancel} hitSlop={8}>
-            <Ionicons name="close" size={22} color={palette.muted} />
-          </Pressable>
-        ) : null}
       </View>
 
       {!lockedCommunityId ? (
@@ -199,7 +196,9 @@ export function CreatePostForm({ communities, lockedCommunityId, onSuccess, onCa
 
 const styles = StyleSheet.create({
   wrap: { padding: 20, gap: 12, paddingBottom: 40 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
+  headerText: { flex: 1 },
+  backSpacer: { width: TapTarget },
   title: { fontFamily: AppFonts.heading, fontSize: 20, color: '#163328' },
   sub: { fontFamily: AppFonts.body, fontSize: 12, color: palette.muted, marginTop: 4 },
   as: { fontFamily: AppFonts.bodySemi, color: palette.amber },

@@ -62,10 +62,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="qa"
+        options={{
+          title: 'Q&A',
+          tabBarIcon: ({ color, size }) => <Ionicons name="help-circle-outline" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Notifications',
-          tabBarIcon: ({ color, size }) => <Ionicons name="notifications-outline" color={color} size={size} />,
+          href: null,
         }}
       />
       <Tabs.Screen
