@@ -27,6 +27,7 @@ type Props = {
   post: Post;
   onReport: (postId: string) => void;
   onPatch?: (postId: string, patch: Partial<Pick<Post, 'like_count' | 'comment_count' | 'hasLiked'>>) => void;
+  onPress?: () => void;
 };
 
 const CARD_GUTTER = 32;
@@ -40,12 +41,13 @@ function asString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
-export function PostCard({ post, onReport, onPatch }: Props) {
+export function PostCard({ post, onReport, onPatch, onPress }: Props) {
   const router = useRouter();
   const activePet = useAuthStore((s) => s.activePet);
   const pet = firstRecord(post.pets);
   const community = firstRecord(post.communities);
   const petSpecies = pet?.species || pet?.pet_type;
+  const isQuestion = post.post_type === 'question';
   const hasLiked = !!post.hasLiked;
   const likeCount = post.like_count || 0;
   const [showMenu, setShowMenu] = useState(false);
@@ -58,8 +60,20 @@ export function PostCard({ post, onReport, onPatch }: Props) {
   const prevCommentCount = useRef(post.comment_count || 0);
 
   const commentCount = Math.max(post.comment_count || 0, comments.length);
-  const verbPlural = getCommentVerbPlural(petSpecies, commentCount);
-  const verbSingular = getCommentVerb(petSpecies);
+  const verbSingular = isQuestion ? 'Answer' : getCommentVerb(petSpecies);
+  const verbPlural = isQuestion
+    ? commentCount === 1
+      ? 'Answer'
+      : 'Answers'
+    : getCommentVerbPlural(petSpecies, commentCount);
+
+  function handleQuestionPress() {
+    if (onPress) {
+      onPress();
+      return;
+    }
+    if (isQuestion) router.push(`/qa/${post.id}`);
+  }
 
   useEffect(() => {
     const nextCount = post.comment_count || 0;
@@ -154,38 +168,68 @@ export function PostCard({ post, onReport, onPatch }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Pressable
-          style={styles.authorRow}
-          onPress={() => {
-            if (pet?.id) router.push(`/pet/${pet.id}`);
-          }}>
-          {authorAvatar ? (
-            <Image source={{ uri: authorAvatar }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarEmpty}>
-              <Ionicons name="paw" size={18} color={palette.amber} />
+        <View style={styles.headerTop}>
+          <Pressable
+            style={styles.authorRow}
+            onPress={() => {
+              if (pet?.id) router.push(`/pet/${pet.id}`);
+            }}>
+            {authorAvatar ? (
+              <Image source={{ uri: authorAvatar }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarEmpty}>
+                <Ionicons name="paw" size={18} color={palette.amber} />
+              </View>
+            )}
+            <View style={styles.authorText}>
+              <View style={styles.nameRow}>
+                <Text style={styles.name}>{authorName}</Text>
+                {isQuestion ? (
+                  <Text style={styles.inPack}>
+                    {' '}
+                    in <Text style={styles.packName}>Q & A</Text>
+                  </Text>
+                ) : communityName ? (
+                  <Text style={styles.inPack}>
+                    {' '}
+                    in <Text style={styles.packName}>{communityName}</Text>
+                  </Text>
+                ) : null}
+              </View>
+              <Text style={styles.meta}>
+                {authorHandle}
+                {authorHandle ? ' • ' : ''}
+                {formatRelativeTime(post.created_at)}
+              </Text>
             </View>
-          )}
-          <View style={styles.authorText}>
-            <View style={styles.nameRow}>
-              <Text style={styles.name}>{authorName}</Text>
-              {communityName ? (
-                <Text style={styles.inPack}>
-                  {' '}
-                  in <Text style={styles.packName}>{communityName}</Text>
+          </Pressable>
+
+          <Pressable onPress={() => setShowMenu((v) => !v)} hitSlop={8} style={styles.menuBtn}>
+            <Ionicons name="ellipsis-horizontal" size={20} color={palette.faded} />
+          </Pressable>
+        </View>
+
+        {isQuestion ? (
+          <View style={styles.qaBadges}>
+            {post.topic_category ? (
+              <View style={styles.topicPill}>
+                <Text style={styles.topicText} numberOfLines={1}>
+                  🐾 {post.topic_category}
                 </Text>
-              ) : null}
-            </View>
-            <Text style={styles.meta}>
-              {authorHandle}
-              {authorHandle ? ' • ' : ''}
-              {formatRelativeTime(post.created_at)}
-            </Text>
+              </View>
+            ) : null}
+            {post.is_solved ? (
+              <View style={styles.solvedPill}>
+                <Ionicons name="checkmark-circle" size={12} color="#1E7745" />
+                <Text style={styles.solvedText}>Solved</Text>
+              </View>
+            ) : (
+              <View style={styles.questionPill}>
+                <Text style={styles.questionText}>Question ?</Text>
+              </View>
+            )}
           </View>
-        </Pressable>
-        <Pressable onPress={() => setShowMenu((v) => !v)} hitSlop={8} style={styles.menuBtn}>
-          <Ionicons name="ellipsis-horizontal" size={20} color={palette.faded} />
-        </Pressable>
+        ) : null}
         {showMenu ? (
           <View style={styles.menu}>
             <Pressable style={styles.menuItem} onPress={handleShare}>
@@ -241,10 +285,12 @@ export function PostCard({ post, onReport, onPatch }: Props) {
             {likeCount} Treats
           </Text>
         </Pressable>
-        <Pressable onPress={handleToggleComments} style={styles.action}>
+        <Pressable
+          onPress={isQuestion ? handleQuestionPress : handleToggleComments}
+          style={styles.action}>
           <Ionicons name="chatbubble-outline" size={18} color="#163328" />
           <Text style={styles.actionLabel}>
-            {commentCount} {commentCount === 1 ? verbSingular : verbPlural}
+            {isQuestion ? `${commentCount} ${verbPlural}` : `${commentCount} ${commentCount === 1 ? verbSingular : verbPlural}`}
           </Text>
         </Pressable>
         <Pressable onPress={handleShare} style={[styles.action, { marginLeft: 'auto' }]}>
@@ -253,7 +299,20 @@ export function PostCard({ post, onReport, onPatch }: Props) {
         </Pressable>
       </View>
 
-      {post.caption ? <Text style={styles.caption}>{post.caption}</Text> : null}
+      {post.caption ? (
+        <Pressable onPress={isQuestion ? handleQuestionPress : undefined} disabled={!isQuestion && !onPress}>
+          <Text style={styles.caption}>{post.caption}</Text>
+        </Pressable>
+      ) : null}
+
+      {isQuestion && post.accepted_answer ? (
+        <Pressable onPress={handleQuestionPress} style={styles.acceptedPreview}>
+          <Text style={styles.acceptedLabel}>★ Accepted Best Answer</Text>
+          <Text style={styles.acceptedSnippet} numberOfLines={2}>
+            "{post.accepted_answer.content}"
+          </Text>
+        </Pressable>
+      ) : null}
 
       {showComments ? (
         <View style={styles.comments}>
@@ -309,8 +368,53 @@ const styles = StyleSheet.create({
     borderColor: '#EDE8E1',
     overflow: 'hidden',
   },
-  header: { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { padding: 16, gap: 10 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 8 },
+  qaBadges: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  topicPill: {
+    backgroundColor: palette.tabTrack,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    maxWidth: 140,
+  },
+  topicText: { fontFamily: AppFonts.bodySemi, fontSize: 11, color: palette.evergreenSoft },
+  solvedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E4F5EB',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  solvedText: { fontFamily: AppFonts.bodySemi, fontSize: 11, color: '#1E7745' },
+  questionPill: {
+    backgroundColor: palette.apricot,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  questionText: { fontFamily: AppFonts.bodySemi, fontSize: 11, color: palette.brown },
+  acceptedPreview: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: '#F7FDF4',
+    borderWidth: 1.5,
+    borderColor: '#84CC16',
+    borderRadius: 14,
+    padding: 12,
+    gap: 4,
+  },
+  acceptedLabel: { fontFamily: AppFonts.bodySemi, fontSize: 12, color: '#15803D' },
+  acceptedSnippet: {
+    fontFamily: AppFonts.body,
+    fontSize: 13,
+    color: '#334155',
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: palette.tabTrack },
   avatarEmpty: {
     width: 40,

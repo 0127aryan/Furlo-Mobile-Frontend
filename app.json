@@ -40,7 +40,8 @@
           "photosPermission": "Furlo uses your photos for pet profile pictures and posts."
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": false,

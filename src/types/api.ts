@@ -85,25 +85,43 @@ export interface SignupResponse {
   requiresVerification?: boolean;
 }
 
-export interface Post {
+export interface PetAuthor {
   id: string;
-  caption: string;
-  post_type: 'regular' | 'question' | 'advice' | 'meme';
-  location_city?: string;
-  like_count: number;
-  comment_count: number;
-  hasLiked?: boolean;
+  name: string;
+  username: string;
+  breed?: string;
+  city?: string;
+  species?: string;
+  pet_type?: string;
+  profile_image_url: string;
+}
+
+export interface AcceptedAnswer {
+  id: string;
+  content: string;
   created_at: string;
   pets?: {
     id: string;
     name: string;
     username: string;
-    breed: string;
-    species?: string;
-    pet_type?: string;
-    city: string;
     profile_image_url: string;
   };
+}
+
+export interface Post {
+  id: string;
+  caption: string;
+  post_type: 'regular' | 'question' | 'advice' | 'meme';
+  topic_category?: string;
+  is_solved?: boolean;
+  accepted_answer_id?: string | null;
+  accepted_answer?: AcceptedAnswer | null;
+  location_city?: string;
+  like_count: number;
+  comment_count: number;
+  hasLiked?: boolean;
+  created_at: string;
+  pets?: PetAuthor;
   communities?: {
     id: string;
     name: string;
@@ -116,10 +134,31 @@ export interface Post {
   }[];
 }
 
+export type QuestionPost = Post;
+
+export interface TrendingQuestion {
+  id: string;
+  caption: string;
+  like_count: number;
+  comment_count: number;
+  created_at?: string;
+}
+
+export interface HelperPet {
+  id: string;
+  name: string;
+  username: string;
+  profile_image_url: string;
+  rank: number;
+  helpful_count: number;
+}
+
 export interface CommentItem {
   id: string;
   content: string;
   created_at: string;
+  is_accepted_answer?: boolean;
+  like_count?: number;
   pets?: {
     id: string;
     name: string;
@@ -127,6 +166,8 @@ export interface CommentItem {
     profile_image_url: string;
   };
 }
+
+export type QuestionDetail = Post;
 
 export interface CompleteOnboardingBody {
   role?: 'parent' | 'lover';
@@ -212,5 +253,8 @@ export interface CreatePostBody {
   communityId?: string | null;
   caption?: string;
   postType?: 'regular' | 'question' | 'advice' | 'meme';
+  topicCategory?: string;
   mediaData?: string[];
 }
+
+export type QAFilterTab = 'all' | 'unanswered' | 'solved';

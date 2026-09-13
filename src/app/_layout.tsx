@@ -78,6 +78,10 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="pet/[id]" />
         <Stack.Screen name="community/[slug]" />
+        <Stack.Screen name="qa" />
+        <Stack.Screen name="about" />
+        <Stack.Screen name="privacy" />
+        <Stack.Screen name="terms" />
       </Stack>
     </ThemeProvider>
   );
