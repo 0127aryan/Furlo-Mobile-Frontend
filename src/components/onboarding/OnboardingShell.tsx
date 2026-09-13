@@ -20,7 +20,7 @@ export function OnboardingShell({ step, rightLabel, onBack, onRightPress, childr
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Pressable onPress={onBack} style={styles.back} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={palette.brown} />
+          <Ionicons name="arrow-back" size={22} color={palette.brown} />
         </Pressable>
         <Text style={styles.stepLabel}>Step {step} of 4</Text>
         {rightLabel ? (

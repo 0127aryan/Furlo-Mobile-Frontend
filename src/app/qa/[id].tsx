@@ -26,6 +26,7 @@ import {
   markQuestionUnsolved,
   unacceptAnswer,
 } from '@/api/posts';
+import { ScreenBackButton } from '@/components/common/ScreenBackButton';
 import { AcceptedBestAnswerCard } from '@/components/qa/AcceptedBestAnswerCard';
 import { AnswerListItem } from '@/components/qa/AnswerListItem';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
@@ -318,10 +319,7 @@ export default function QuestionDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={palette.evergreen} />
-          <Text style={styles.backLabel}>Back to Q&A Hub</Text>
-        </Pressable>
+        <ScreenBackButton fallbackHref="/qa" />
         {question?.topic_category ? (
           <View style={styles.topicPill}>
             <Text style={styles.topicText}>🐾 {question.topic_category}</Text>
@@ -537,8 +535,6 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.cardLine,
     backgroundColor: '#FAF7F2',
   },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  backLabel: { fontFamily: AppFonts.bodySemi, fontSize: 13, color: palette.faded },
   topicPill: {
     backgroundColor: '#fff',
     borderWidth: 1,

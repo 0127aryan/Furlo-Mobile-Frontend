@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getCommunityCategories, getCommunities, getMyCommunities, joinCommunity } from '@/api/communities';
+import { ScreenBackButton } from '@/components/common/ScreenBackButton';
 import { CreatePackBottomSheet } from '@/components/packs/CreatePackBottomSheet';
 import { PackTitleWithBadges } from '@/components/packs/PackTitleWithBadges';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
@@ -209,6 +210,9 @@ export default function PacksScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.backRow}>
+        <ScreenBackButton />
+      </View>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Find Your Pack 🐾</Text>
@@ -317,6 +321,7 @@ export default function PacksScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: palette.cream },
+  backRow: { paddingHorizontal: 12, paddingTop: 8 },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',

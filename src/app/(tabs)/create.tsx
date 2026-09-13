@@ -26,6 +26,7 @@ export default function CreateScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.cream }} edges={['top']}>
       <CreatePostForm
         communities={communities}
+        onCancel={() => router.replace('/feed')}
         onSuccess={() => {
           Alert.alert('Posted', `Your ${verbLower} is in The Yard.`);
           router.replace('/feed');

@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getQAQuestions, getQATopHelpers, getQATrending } from '@/api/posts';
+import { ScreenBackButton } from '@/components/common/ScreenBackButton';
 import { PostCard } from '@/components/feed/PostCard';
 import { ReportPostModal } from '@/components/feed/ReportPostModal';
 import { AskQuestionBottomSheet } from '@/components/qa/AskQuestionBottomSheet';
@@ -167,9 +168,7 @@ export default function QAHubScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.amber} />}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={22} color={palette.evergreen} />
-          </Pressable>
+          <ScreenBackButton />
           <View style={styles.headerText}>
             <Text style={styles.title}>Pet Q&A Hub 🐾</Text>
             <Text style={styles.subtitle}>Ask questions, get advice from pet parents</Text>
@@ -323,7 +322,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FDF8F2' },
   scroll: { padding: 16, paddingBottom: 100, gap: 16 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  backBtn: { paddingTop: 4 },
   headerText: { flex: 1 },
   title: { fontFamily: AppFonts.heading, fontSize: 24, color: palette.evergreen },
   subtitle: { fontFamily: AppFonts.body, fontSize: 13, color: palette.faded, marginTop: 4 },

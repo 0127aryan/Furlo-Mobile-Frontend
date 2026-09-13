@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { logout } from '@/api/auth';
+import { ScreenBackButton } from '@/components/common/ScreenBackButton';
 import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { PetProfileView } from '@/components/profile/PetProfileView';
 import { ProfileMenuSheet } from '@/components/profile/ProfileMenuSheet';
@@ -34,7 +35,10 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topBar}>
-        <Text style={styles.topTitle}>My Paw Print</Text>
+        <View style={styles.topBarLeft}>
+          <ScreenBackButton />
+          <Text style={styles.topTitle}>My Paw Print</Text>
+        </View>
         <Pressable
           onPress={() => setMenuOpen(true)}
           hitSlop={8}
@@ -63,11 +67,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: palette.cardLine,
   },
+  topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
   topTitle: { fontFamily: AppFonts.heading, fontSize: 20, color: palette.evergreen },
   menuBtn: { alignItems: 'center', justifyContent: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },

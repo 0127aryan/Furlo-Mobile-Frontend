@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ScreenBackButton } from '@/components/common/ScreenBackButton';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 
 type RecoveryState = 'form' | 'sent';
@@ -74,10 +75,7 @@ export default function ForgotPasswordScreen() {
         <View style={styles.card}>
           {state === 'form' ? (
             <>
-              <Pressable style={styles.back} onPress={() => router.replace('/join')}>
-                <Ionicons name="arrow-back" size={20} color={palette.mutedGreen} />
-                <Text style={styles.backLabel}>Go back</Text>
-              </Pressable>
+              <ScreenBackButton onPress={() => router.replace('/join')} color={palette.mutedGreen} />
 
               <View style={styles.pawWrap}>
                 <Ionicons name="paw" size={48} color={palette.forest} />

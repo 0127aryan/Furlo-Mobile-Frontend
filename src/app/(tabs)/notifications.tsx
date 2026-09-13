@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getReceivedWags } from '@/api/auth';
+import { ScreenBackButton } from '@/components/common/ScreenBackButton';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { startFollowRealtime } from '@/lib/subscribeFollowEvents';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -74,8 +75,11 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Alerts</Text>
-        <Text style={styles.subtitle}>Tail wags from the pack</Text>
+        <ScreenBackButton />
+        <View>
+          <Text style={styles.title}>Alerts</Text>
+          <Text style={styles.subtitle}>Tail wags from the pack</Text>
+        </View>
       </View>
 
       {loading ? (
@@ -126,7 +130,14 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FEF9F3' },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
   title: { fontFamily: AppFonts.heading, fontSize: 28, color: '#011E14' },
   subtitle: { fontFamily: AppFonts.body, fontSize: 14, color: '#727974', marginTop: 4 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
