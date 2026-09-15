@@ -14,12 +14,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { followPet, getCommunities, getFollowingPets, getPackMembers, getPetProfile, sendWag } from '@/api/auth';
+import { followPet, getCommunities, getFollowingPets, getPackMembers, getPetProfile } from '@/api/auth';
 import { CreatePostForm } from '@/components/feed/CreatePostForm';
 import { PostCard } from '@/components/feed/PostCard';
 import { ReportPostModal } from '@/components/feed/ReportPostModal';
+import { ProfileSkeleton } from '@/components/skeletons';
 import { EditPetProfileModal } from '@/components/profile/EditPetProfileModal';
 import { PackMembersModal } from '@/components/profile/PackMembersModal';
+import { SendWagButton } from '@/components/social/SendWagButton';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { startFollowRealtime } from '@/lib/subscribeFollowEvents';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
@@ -43,7 +45,6 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
   const setSocialCounts = usePetSocialStore((s) => s.setCounts);
   const applyFollow = usePetSocialStore((s) => s.applyFollow);
   const markWagged = usePetSocialStore((s) => s.markWagged);
-  const waggedTargets = usePetSocialStore((s) => s.waggedTargets);
   const [pet, setPet] = useState<Pet | null>(null);
   const liveCounts = usePetSocialStore((s) => s.counts[pet?.id || ''] ?? s.counts[petId]);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -65,6 +66,7 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
   const [listKind, setListKind] = useState<'pack' | 'following' | null>(null);
   const [listMembers, setListMembers] = useState<PackMember[]>([]);
   const [listLoading, setListLoading] = useState(false);
+  const [hasWagged, setHasWagged] = useState(false);
 
   const isOwner = Boolean(
     (activePet?.id && pet?.id && activePet.id === pet.id) ||
@@ -102,6 +104,12 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
       if (data.stats?.isFollowing !== undefined) {
         setFollowing(Boolean(data.stats.isFollowing));
       }
+      if (data.stats?.hasWagged && data.pet?.id) {
+        setHasWagged(true);
+        markWagged(data.pet.id);
+      } else {
+        setHasWagged(false);
+      }
     } catch {
       if (!silent) {
         setPet(null);
@@ -110,7 +118,7 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [petId, activePet?.id, setSocialCounts]);
+  }, [petId, activePet?.id, setSocialCounts, markWagged]);
 
   useEffect(() => {
     startFollowRealtime();
@@ -228,27 +236,10 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
     }
   }
 
-  async function handleWag() {
-    if (!pet?.id || waggedTargets[pet.id]) return;
-    if (!activePet?.id) {
-      Alert.alert('Wag', 'Please log in with a pet profile to send a wag.');
-      return;
-    }
-
-    markWagged(pet.id);
-
-    try {
-      await sendWag(pet.id, activePet.id);
-    } catch (err) {
-      console.warn('[PetProfile] Send wag error:', err);
-    }
-  }
-
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={palette.amber} />
-        <Text style={styles.loadingText}>Fetching pet profile...</Text>
+      <View style={styles.skeletonWrap}>
+        <ProfileSkeleton />
       </View>
     );
   }
@@ -266,8 +257,6 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
   const tags = pet.personality_tags || [];
   const packMembersCount = liveCounts?.packMembersCount ?? stats.packMembersCount;
   const followingCount = liveCounts?.followingCount ?? stats.followingCount;
-  const wagSent = Boolean(waggedTargets[pet.id]);
-
   return (
     <>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -293,31 +282,31 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
                 <Ionicons name="create-outline" size={16} color="#011E14" />
                 <Text style={styles.editLabel}>Edit Profile</Text>
               </Pressable>
-            ) : (
-              <View style={styles.actions}>
-                <Pressable
-                  onPress={handleFollow}
-                  style={[styles.followBtn, following && styles.followingBtn, { minHeight: TapTarget }]}>
-                  <Ionicons
-                    name={following ? 'checkmark' : 'person-add-outline'}
-                    size={16}
-                    color={following ? '#163328' : '#fff'}
-                  />
-                  <Text style={[styles.followLabel, following && styles.followingLabel]}>
-                    {following ? 'Following' : 'Follow'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleWag}
-                  style={[styles.wagBtn, wagSent && styles.wagSent, { minHeight: TapTarget }]}>
-                  <Ionicons name="hand-left-outline" size={16} color="#974900" />
-                  <Text style={[styles.wagLabel, wagSent && { color: palette.amber }]}>
-                    {wagSent ? 'Wag Sent! 🐾' : 'Send a Wag'}
-                  </Text>
-                </Pressable>
-              </View>
-            )}
+            ) : null}
           </View>
+
+          {!isOwner ? (
+            <View style={styles.actions}>
+              <Pressable
+                onPress={handleFollow}
+                disabled={actionBusy}
+                style={[styles.followBtn, following && styles.followingBtn, { minHeight: TapTarget }]}>
+                <Ionicons
+                  name={following ? 'checkmark' : 'person-add-outline'}
+                  size={16}
+                  color={following ? '#163328' : '#fff'}
+                />
+                <Text style={[styles.followLabel, following && styles.followingLabel]}>
+                  {following ? 'Following' : 'Follow'}
+                </Text>
+              </Pressable>
+              <SendWagButton
+                targetPetId={pet.id}
+                targetPetName={pet.name}
+                initialWagged={hasWagged}
+              />
+            </View>
+          ) : null}
 
           {isOwner ? (
             <View style={styles.postBtnRow}>
@@ -525,6 +514,7 @@ function InfoCell({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
+  skeletonWrap: { flex: 1, padding: 16 },
   loadingText: { fontFamily: AppFonts.body, fontSize: 14, color: '#727974' },
   errorTitle: { fontFamily: AppFonts.heading, fontSize: 18, color: '#011E14', textAlign: 'center' },
   scroll: { paddingBottom: 40 },
@@ -592,32 +582,21 @@ const styles = StyleSheet.create({
   },
   postLabel: { fontFamily: AppFonts.bodySemi, fontSize: 13, color: '#fff' },
   createSafe: { flex: 1, backgroundColor: palette.cream },
-  actions: { flexDirection: 'row', gap: 8, marginBottom: 8, flexShrink: 1 },
+  actions: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   followBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#163328',
     borderRadius: 999,
     paddingHorizontal: 14,
+    paddingVertical: 8,
     justifyContent: 'center',
   },
   followingBtn: { backgroundColor: '#C9EAD9' },
   followLabel: { fontFamily: AppFonts.bodySemi, fontSize: 13, color: '#fff' },
   followingLabel: { color: '#163328' },
-  wagBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 2,
-    borderColor: '#EDE8E1',
-    backgroundColor: '#fff',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-  },
-  wagSent: { borderColor: palette.amber, backgroundColor: 'rgba(232,132,58,0.1)' },
-  wagLabel: { fontFamily: AppFonts.bodySemi, fontSize: 13, color: '#011E14' },
   nameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 4 },
   name: { fontFamily: AppFonts.heading, fontSize: 28, color: '#011E14' },
   breedChip: { backgroundColor: '#C9EAD9', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },

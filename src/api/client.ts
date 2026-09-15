@@ -35,11 +35,9 @@ function getApiBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (fromEnv) return stripTrailingSlash(fromEnv);
 
-  // Real phones cannot reach 10.0.2.2; use the same LAN IP Metro is serving on.
-  if (Constants.isDevice) {
-    const fromHost = apiUrlFromExpoHost();
-    if (fromHost) return fromHost;
-  }
+  // Dev client connected to Metro — use the same LAN IP (works on phone + emulator).
+  const fromHost = apiUrlFromExpoHost();
+  if (fromHost) return fromHost;
 
   const extra = Constants.expoConfig?.extra?.apiUrl as string | undefined;
   if (extra) return stripTrailingSlash(extra);

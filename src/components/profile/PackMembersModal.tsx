@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { ListRowsSkeleton } from '@/components/skeletons';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import type { PackMember } from '@/types/api';
 
@@ -55,10 +55,7 @@ export function PackMembersModal({
 
           <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
             {loading ? (
-              <View style={styles.status}>
-                <ActivityIndicator color={palette.amber} />
-                <Text style={styles.statusText}>{loadingText}</Text>
-              </View>
+              <ListRowsSkeleton count={5} />
             ) : members.length === 0 ? (
               <View style={styles.status}>
                 <Text style={styles.statusText}>{emptyText}</Text>

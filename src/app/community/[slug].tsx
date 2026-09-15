@@ -17,7 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getCommunity, joinCommunity } from '@/api/communities';
 import { getFeed } from '@/api/posts';
+import { CommunityMemberRow } from '@/components/community/CommunityMemberRow';
 import { CreatePostForm } from '@/components/feed/CreatePostForm';
+import { CommunityDetailSkeleton } from '@/components/skeletons';
 import { PostCard } from '@/components/feed/PostCard';
 import { ReportPostModal } from '@/components/feed/ReportPostModal';
 import { PackTitleWithBadges } from '@/components/packs/PackTitleWithBadges';
@@ -206,9 +208,11 @@ export default function CommunityHubScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={palette.amber} />
-      </View>
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.skeletonWrap}>
+          <CommunityDetailSkeleton />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -368,27 +372,7 @@ export default function CommunityHubScreen() {
                 <Text style={styles.empty}>No members listed yet. Join the pack to become the first member! 🐾</Text>
               ) : (
                 (hub.members || []).map((member) => (
-                  <Pressable
-                    key={member.id}
-                    onPress={() => router.push(`/pet/${member.id}`)}
-                    style={styles.memberRow}>
-                    <View style={styles.memberInfo}>
-                      {member.profile_image_url ? (
-                        <Image source={{ uri: member.profile_image_url }} style={styles.memberAvatar} />
-                      ) : (
-                        <View style={[styles.memberAvatar, styles.stackEmpty]}>
-                          <Ionicons name="paw" size={16} color={palette.amber} />
-                        </View>
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.memberName}>{member.name}</Text>
-                        <Text style={styles.memberHandle}>
-                          @{member.username || 'pet'} • {member.breed || 'Companion'}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color={palette.amber} />
-                    </View>
-                  </Pressable>
+                  <CommunityMemberRow key={member.id} member={member} />
                 ))
               )}
             </View>
@@ -447,6 +431,7 @@ export default function CommunityHubScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: palette.cream },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.cream },
+  skeletonWrap: { flex: 1, padding: 16 },
   backPlain: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 16 },
   backPlainText: { fontFamily: AppFonts.bodySemi, fontSize: 15, color: palette.evergreen },
   missing: { fontFamily: AppFonts.heading, fontSize: 20, color: palette.evergreen, paddingHorizontal: 20 },

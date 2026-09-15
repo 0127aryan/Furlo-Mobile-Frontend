@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   RefreshControl,
@@ -16,12 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getCommunities } from '@/api/auth';
 import { getFeed } from '@/api/posts';
+import { FeedListSkeleton } from '@/components/skeletons';
 import { CreatePostForm } from '@/components/feed/CreatePostForm';
 import { PostCard } from '@/components/feed/PostCard';
 import { ReportPostModal } from '@/components/feed/ReportPostModal';
 import { AskQuestionBottomSheet } from '@/components/qa/AskQuestionBottomSheet';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { usePostVerb } from '@/hooks/usePostVerb';
+import { useUnreadNotificationCount } from '@/hooks/useUnreadNotificationCount';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Community, Post } from '@/types/api';
@@ -42,6 +43,7 @@ export default function FeedScreen() {
   const { verb, verbLower, verbPluralLower } = usePostVerb(activePet);
   const petIdRef = useRef(activePet?.id);
   petIdRef.current = activePet?.id;
+  const { count: unreadCount } = useUnreadNotificationCount();
 
   const loadFeed = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -103,8 +105,15 @@ export default function FeedScreen() {
             <Text style={styles.brand}>furlo</Text>
           </View>
           <View style={styles.headerActions}>
-            <Pressable onPress={() => router.push('/notifications')} style={styles.notifBtn}>
-              <Ionicons name="notifications-outline" size={16} color={palette.evergreenSoft} />
+            <Pressable onPress={() => router.push('/(tabs)/notifications')} style={styles.notifBtn}>
+              <View>
+                <Ionicons name="notifications-outline" size={16} color={palette.evergreenSoft} />
+                {unreadCount > 0 ? (
+                  <View style={styles.notifBadge}>
+                    <Text style={styles.notifBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                ) : null}
+              </View>
               <Text style={styles.notifBtnLabel}>Alerts</Text>
             </Pressable>
             <Pressable onPress={() => setCreateOpen(true)} style={styles.headerCta}>
@@ -146,10 +155,7 @@ export default function FeedScreen() {
         </Pressable>
 
         {loading ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color={palette.amber} />
-            <Text style={styles.loadingText}>Fetching {verbPluralLower} in The Yard...</Text>
-          </View>
+          <FeedListSkeleton />
         ) : posts.length === 0 ? (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
@@ -224,6 +230,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   notifBtnLabel: { fontFamily: AppFonts.bodySemi, fontSize: 12, color: palette.evergreenSoft },
+  notifBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: palette.amber,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FEF9F3',
+  },
+  notifBadgeText: { fontFamily: AppFonts.bodySemi, fontSize: 9, color: '#fff' },
   headerCta: {
     backgroundColor: palette.amber,
     paddingHorizontal: 14,

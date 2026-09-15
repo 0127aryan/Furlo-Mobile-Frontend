@@ -17,6 +17,7 @@ import { getQAQuestions, getQATopHelpers, getQATrending } from '@/api/posts';
 import { ScreenBackButton } from '@/components/common/ScreenBackButton';
 import { PostCard } from '@/components/feed/PostCard';
 import { ReportPostModal } from '@/components/feed/ReportPostModal';
+import { QuestionListSkeleton } from '@/components/skeletons';
 import { AskQuestionBottomSheet } from '@/components/qa/AskQuestionBottomSheet';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
@@ -267,10 +268,7 @@ export default function QAHubScreen() {
         </View>
 
         {loading ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color={palette.amber} />
-            <Text style={styles.loadingText}>Fetching pet questions...</Text>
-          </View>
+          <QuestionListSkeleton />
         ) : questions.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="help-circle-outline" size={48} color={palette.amber} />

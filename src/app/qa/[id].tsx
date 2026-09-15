@@ -27,6 +27,7 @@ import {
   unacceptAnswer,
 } from '@/api/posts';
 import { ScreenBackButton } from '@/components/common/ScreenBackButton';
+import { QuestionDetailSkeleton } from '@/components/skeletons';
 import { AcceptedBestAnswerCard } from '@/components/qa/AcceptedBestAnswerCard';
 import { AnswerListItem } from '@/components/qa/AnswerListItem';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
@@ -328,9 +329,8 @@ export default function QuestionDetailScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={palette.amber} size="large" />
-          <Text style={styles.loadingText}>Loading question...</Text>
+        <View style={styles.skeletonWrap}>
+          <QuestionDetailSkeleton />
         </View>
       ) : error || !question ? (
         <View style={styles.center}>
@@ -545,6 +545,7 @@ const styles = StyleSheet.create({
   },
   topicText: { fontFamily: AppFonts.bodySemi, fontSize: 11, color: palette.evergreenSoft },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
+  skeletonWrap: { flex: 1, padding: 16 },
   loadingText: { fontFamily: AppFonts.body, fontSize: 14, color: palette.faded },
   errorTitle: { fontFamily: AppFonts.heading, fontSize: 18, color: palette.evergreen, textAlign: 'center' },
   errorCta: {

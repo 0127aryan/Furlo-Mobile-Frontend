@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getCommunityCategories, getCommunities, getMyCommunities, joinCommunity } from '@/api/communities';
 import { ScreenBackButton } from '@/components/common/ScreenBackButton';
+import { PackListSkeleton } from '@/components/skeletons';
 import { CreatePackBottomSheet } from '@/components/packs/CreatePackBottomSheet';
 import { PackTitleWithBadges } from '@/components/packs/PackTitleWithBadges';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
@@ -256,9 +257,8 @@ export default function PacksScreen() {
       </ScrollView>
 
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={palette.amber} />
-          <Text style={styles.empty}>Fetching packs...</Text>
+        <View style={styles.skeletonWrap}>
+          <PackListSkeleton />
         </View>
       ) : (
         <ScrollView
@@ -373,6 +373,7 @@ const styles = StyleSheet.create({
   filterText: { fontFamily: AppFonts.bodySemi, fontSize: 13, color: '#424844' },
   filterTextOn: { color: palette.brown },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  skeletonWrap: { flex: 1, paddingHorizontal: 20, paddingTop: 12 },
   list: { paddingHorizontal: 20, paddingBottom: 40 },
   section: { fontFamily: AppFonts.headingSemi, fontSize: 18, color: palette.evergreen, marginBottom: 10 },
   empty: { fontFamily: AppFonts.body, fontSize: 14, color: palette.faded, marginBottom: 8, textAlign: 'center' },
