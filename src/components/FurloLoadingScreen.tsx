@@ -60,7 +60,7 @@ export function FurloLoadingScreen({ caption = 'Preparing experience' }: Props) 
   return (
     <View style={styles.screen} accessibilityLabel="Loading Furlo">
       <View style={styles.center}>
-        <Text style={styles.wordmark}>FURLO</Text>
+        <Text style={styles.wordmark}>furlo</Text>
         <Text style={styles.tagline}>Where Pets Belong</Text>
         <View style={styles.dots}>
           {dots.map((dot, i) => (
@@ -112,11 +112,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tagline: {
-    fontFamily: AppFonts.bodyMedium,
+    fontFamily: AppFonts.body,
     color: '#5C6370',
     fontSize: 12,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
     opacity: 0.75,
     marginBottom: 40,
   },

@@ -13,17 +13,32 @@
     },
     "android": {
       "package": "com.furlopets.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E8843A",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": [
+              "$rootDir/../../../node_modules/@notifee/react-native/android/libs"
+            ]
+          }
+        }
+      ],
+      "expo-dev-client",
       "expo-router",
       [
         "expo-splash-screen",
@@ -41,14 +56,26 @@
         }
       ],
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#E8843A"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false,
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "http://10.0.2.2:4000"
-    }
+      "apiUrl": "http://10.0.2.2:4000",
+      "router": {},
+      "eas": {
+        "projectId": "14c9bb0f-1840-4409-b601-21211afefac4"
+      }
+    },
+    "owner": "furlo.pets"
   }
 }

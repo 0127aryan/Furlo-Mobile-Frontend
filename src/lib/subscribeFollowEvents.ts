@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { getAccessToken, getRefreshToken } from '@/lib/secureStore';
+import { handleNotificationBroadcast } from '@/lib/subscribeNotifications';
 import { getSupabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePetSocialStore, type FollowEvent } from '@/store/usePetSocialStore';
@@ -8,6 +9,7 @@ import type { WagItem } from '@/types/api';
 
 let started = false;
 let channel: RealtimeChannel | null = null;
+let setupPromise: Promise<void> | null = null;
 
 function isFollowEvent(payload: unknown): payload is FollowEvent {
   if (!payload || typeof payload !== 'object') return false;
@@ -44,10 +46,9 @@ function wagFromBroadcast(payload: unknown): WagItem | null {
 }
 
 export function startFollowRealtime(): void {
-  if (started) return;
-  started = true;
+  if (setupPromise) return;
 
-  void (async () => {
+  setupPromise = (async () => {
     const supabase = await getSupabase();
     if (!supabase) {
       started = false;
@@ -58,6 +59,13 @@ export function startFollowRealtime(): void {
     const refresh_token = await getRefreshToken();
     if (access_token && refresh_token) {
       await supabase.auth.setSession({ access_token, refresh_token });
+    }
+
+    const existing = supabase
+      .getChannels()
+      .find((item) => item.topic === 'realtime:pet-social');
+    if (existing) {
+      await supabase.removeChannel(existing);
     }
 
     channel = supabase
@@ -73,13 +81,23 @@ export function startFollowRealtime(): void {
         if (!myPetId || row.targetPetId !== myPetId) return;
         const wag = wagFromBroadcast(payload);
         if (wag) usePetSocialStore.getState().prependWag(wag);
+      })
+      .on('broadcast', { event: 'notification' }, ({ payload }) => {
+        handleNotificationBroadcast(payload);
       });
 
     channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        started = true;
+        return;
+      }
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         started = false;
         channel = null;
+        setupPromise = null;
       }
     });
-  })();
+  })().finally(() => {
+    setupPromise = null;
+  });
 }

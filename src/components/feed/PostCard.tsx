@@ -17,6 +17,7 @@ import {
 import { useRouter } from 'expo-router';
 
 import { createComment, getComments, likePost } from '@/api/posts';
+import { ListRowsSkeleton } from '@/components/skeletons';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { formatRelativeTime } from '@/lib/formatTime';
 import { getCommentVerb, getCommentVerbPlural } from '@/lib/petVerbMap';
@@ -317,7 +318,7 @@ export function PostCard({ post, onReport, onPatch, onPress }: Props) {
       {showComments ? (
         <View style={styles.comments}>
           {loadingComments ? (
-            <ActivityIndicator color={palette.amber} />
+            <ListRowsSkeleton count={2} />
           ) : comments.length === 0 ? (
             <Text style={styles.emptyComments}>No {verbPlural.toLowerCase()} yet.</Text>
           ) : (

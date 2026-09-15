@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { AppFonts, TapTarget } from '@/constants/theme';
 import { usePostVerb } from '@/hooks/usePostVerb';
 import { useTheme } from '@/hooks/use-theme';
+import { registerPushTokenWithBackend } from '@/lib/pushNotifications';
 import { startFollowRealtime } from '@/lib/subscribeFollowEvents';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -16,8 +17,10 @@ export default function TabsLayout() {
   const { verb } = usePostVerb(activePet);
 
   useEffect(() => {
-    if (user) startFollowRealtime();
-  }, [user]);
+    if (!user?.id) return;
+    startFollowRealtime();
+    void registerPushTokenWithBackend();
+  }, [user?.id]);
 
   if (isHydrated && !user) {
     return <Redirect href="/join" />;

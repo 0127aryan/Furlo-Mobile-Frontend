@@ -33,6 +33,7 @@ export interface PetProfileStats {
   followingCount: number;
   treatsCount: number;
   isFollowing?: boolean;
+  hasWagged?: boolean;
 }
 
 export interface PackMember {
@@ -258,3 +259,61 @@ export interface CreatePostBody {
 }
 
 export type QAFilterTab = 'all' | 'unanswered' | 'solved';
+
+export type NotificationType =
+  | 'best_answer'
+  | 'treat'
+  | 'comment'
+  | 'follow'
+  | 'pack_announcement'
+  | 'system';
+
+export type NotificationCategory = 'all' | 'treats' | 'comments' | 'followers' | 'qa';
+
+export interface NotificationActorPet {
+  id: string;
+  name: string;
+  username: string;
+  profile_image_url?: string | null;
+  breed?: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  user_id: string;
+  actor_pet_id?: string | null;
+  type: NotificationType;
+  title: string;
+  body: string;
+  entity_type?: 'post' | 'comment' | 'community' | 'pet' | null;
+  entity_id?: string | null;
+  is_read: boolean;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  pets?: NotificationActorPet;
+}
+
+export interface NotificationSettings {
+  master_push_enabled: boolean;
+  qa_answers_enabled: boolean;
+  qa_best_answer_enabled: boolean;
+  treats_enabled: boolean;
+  comments_enabled: boolean;
+  followers_enabled: boolean;
+  pack_announcements_enabled: boolean;
+  email_digest_enabled: boolean;
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+  timezone?: string;
+}
+
+export interface NotificationDevicePrefs {
+  pushPermissionAsked: boolean;
+  pushPermissionDismissed: boolean;
+  playSound: boolean;
+  hapticFeedback: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+}

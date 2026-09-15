@@ -1,3 +1,5 @@
+import '@/lib/notifeeBackgroundHandler';
+
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -6,6 +8,7 @@ import { useColorScheme } from 'react-native';
 
 import { restoreSession } from '@/api/auth';
 import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
+import { PushNotificationBootstrap } from '@/components/PushNotificationBootstrap';
 import { palette } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -17,6 +20,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [sessionReady, setSessionReady] = useState(false);
   const [minTimeDone, setMinTimeDone] = useState(false);
+  const user = useAuthStore((s) => s.user);
   const [fontsLoaded] = useFonts({
     Outfit_400Regular: require('../../assets/fonts/Outfit_400Regular.ttf'),
     Outfit_600SemiBold: require('../../assets/fonts/Outfit_600SemiBold.ttf'),
@@ -71,6 +75,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={furloTheme}>
+      <PushNotificationBootstrap enabled={sessionReady && minTimeDone && Boolean(user?.id)} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="join" />
@@ -82,6 +87,7 @@ export default function RootLayout() {
         <Stack.Screen name="about" />
         <Stack.Screen name="privacy" />
         <Stack.Screen name="terms" />
+        <Stack.Screen name="notifications/settings" />
       </Stack>
     </ThemeProvider>
   );

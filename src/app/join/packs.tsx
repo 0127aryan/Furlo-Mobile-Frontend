@@ -14,6 +14,7 @@ import {
 import { completeOnboarding, getCommunities, getMe } from '@/api/auth';
 import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
+import { PackListSkeleton } from '@/components/skeletons';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { buildCompleteOnboardingBody } from '@/lib/onboarding';
 import { roleFromPet } from '@/lib/role';
@@ -109,10 +110,7 @@ export default function JoinPacksScreen() {
           ) : null}
 
           {loading ? (
-            <View style={styles.loading}>
-              <ActivityIndicator color={palette.amber} />
-              <Text style={styles.loadingText}>Fetching active communities...</Text>
-            </View>
+            <PackListSkeleton />
           ) : communities.length === 0 ? (
             <Text style={styles.empty}>No active communities found.</Text>
           ) : (

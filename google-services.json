@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "223692728387",
+    "project_id": "furlopets",
+    "storage_bucket": "furlopets.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:223692728387:android:096f09763014fded5f4cf6",
+        "android_client_info": {
+          "package_name": "com.furlopets.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiIQYd6Eycu9yMij_TkINJM4CG-22CZ_A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
