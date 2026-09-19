@@ -3,10 +3,12 @@ import '@/lib/notifeeBackgroundHandler';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useColorScheme, View } from 'react-native';
+import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { restoreSession } from '@/api/auth';
+import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { PushNotificationBootstrap } from '@/components/PushNotificationBootstrap';
 import { palette } from '@/constants/theme';
@@ -76,19 +78,39 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={furloTheme}>
       <PushNotificationBootstrap enabled={sessionReady && minTimeDone && Boolean(user?.id)} />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="join" />
-        <Stack.Screen name="forgot-password" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="pet/[id]" />
-        <Stack.Screen name="community/[slug]" />
-        <Stack.Screen name="qa" />
-        <Stack.Screen name="about" />
-        <Stack.Screen name="privacy" />
-        <Stack.Screen name="terms" />
-        <Stack.Screen name="notifications/settings" />
-      </Stack>
+      <BannerSafeArea>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="join" />
+          <Stack.Screen name="forgot-password" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="pet/[id]" />
+          <Stack.Screen name="community/[slug]" />
+          <Stack.Screen name="qa" />
+          <Stack.Screen name="about" />
+          <Stack.Screen name="privacy" />
+          <Stack.Screen name="terms" />
+          <Stack.Screen name="notifications/settings" />
+        </Stack>
+      </BannerSafeArea>
     </ThemeProvider>
+  );
+}
+
+function BannerSafeArea({ children }: { children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  const [bannerVisible, setBannerVisible] = useState(false);
+  const onVisibleChange = useCallback((visible: boolean) => {
+    setBannerVisible(visible);
+  }, []);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <AnnouncementBanner onVisibleChange={onVisibleChange} />
+      <SafeAreaInsetsContext.Provider value={bannerVisible ? { ...insets, top: 0 } : insets}>
+        <View style={{ flex: 1 }}>{children}</View>
+      </SafeAreaInsetsContext.Provider>
+    </View>
   );
 }

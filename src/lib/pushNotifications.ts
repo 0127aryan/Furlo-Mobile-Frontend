@@ -55,6 +55,16 @@ async function ensureLegacyExpoChannels(
   }
 }
 
+function toNotifeeData(data: NotificationLinkData): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof value === 'string' && value.length > 0) {
+      next[key] = value;
+    }
+  }
+  return next;
+}
+
 async function displayForegroundWithNotifee(
   title: string,
   body: string,
@@ -70,7 +80,7 @@ async function displayForegroundWithNotifee(
       id: data.notificationId || `furlo-${Date.now()}`,
       title,
       body,
-      data: data as unknown as Record<string, string>,
+      data: toNotifeeData(data),
       android: {
         channelId,
         pressAction: { id: 'default' },

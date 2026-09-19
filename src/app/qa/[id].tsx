@@ -97,6 +97,10 @@ export default function QuestionDetailScreen() {
           return applyPostRowCounts([prev], row)[0];
         });
       },
+      onRemove: (postId) => {
+        if (postId !== id) return;
+        setQuestion(null);
+      },
     });
   }, [id]);
 

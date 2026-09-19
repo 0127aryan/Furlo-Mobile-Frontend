@@ -1,36 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { logout } from '@/api/auth';
 import { ScreenBackButton } from '@/components/common/ScreenBackButton';
-import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { PetProfileView } from '@/components/profile/PetProfileView';
 import { ProfileMenuSheet } from '@/components/profile/ProfileMenuSheet';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function ProfileScreen() {
-  const router = useRouter();
   const activePet = useAuthStore((s) => s.activePet);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-
-  async function handleLogout() {
-    if (loggingOut) return;
-    setLoggingOut(true);
-    try {
-      await logout();
-    } finally {
-      router.replace('/join');
-    }
-  }
-
-  if (loggingOut) {
-    return <FurloLoadingScreen caption="Signing you out" />;
-  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -53,7 +34,7 @@ export default function ProfileScreen() {
           <Text style={styles.emptyBody}>Finish onboarding to see your profile here.</Text>
         </View>
       ) : (
-        <PetProfileView petId={activePet.id} showLogout onLogout={handleLogout} />
+        <PetProfileView petId={activePet.id} />
       )}
 
       <ProfileMenuSheet visible={menuOpen} onClose={() => setMenuOpen(false)} />

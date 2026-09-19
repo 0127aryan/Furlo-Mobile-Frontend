@@ -23,6 +23,7 @@ import { AskQuestionBottomSheet } from '@/components/qa/AskQuestionBottomSheet';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { usePostVerb } from '@/hooks/usePostVerb';
 import { useUnreadNotificationCount } from '@/hooks/useUnreadNotificationCount';
+import { applyPetBadgeToPosts, subscribePetBadges } from '@/lib/subscribePetBadges';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Community, Post } from '@/types/api';
@@ -68,7 +69,7 @@ export default function FeedScreen() {
   }, [loadFeed]);
 
   useEffect(() => {
-    return subscribeYardFeed({
+    const unsubFeed = subscribeYardFeed({
       onPost: (post) => {
         setPosts((prev) => (prev.some((item) => item.id === post.id) ? prev : [post, ...prev]));
       },
@@ -78,7 +79,17 @@ export default function FeedScreen() {
       onPostRow: (row) => {
         setPosts((prev) => applyPostRowCounts(prev, row));
       },
+      onRemove: (postId) => {
+        setPosts((prev) => prev.filter((item) => item.id !== postId));
+      },
     });
+    const unsubBadges = subscribePetBadges((payload) => {
+      setPosts((prev) => applyPetBadgeToPosts(prev, payload));
+    });
+    return () => {
+      unsubFeed();
+      unsubBadges();
+    };
   }, []);
 
   const patchPost = useCallback(

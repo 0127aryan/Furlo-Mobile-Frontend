@@ -16,6 +16,7 @@ type Listener = {
   onPost?: (post: Post) => void;
   onCounts?: (payload: FeedCountPayload) => void;
   onPostRow?: (row: { id?: string; like_count?: number; comment_count?: number }) => void;
+  onRemove?: (postId: string) => void;
 };
 
 const listeners = new Set<Listener>();
@@ -90,8 +91,7 @@ async function ensureChannel(): Promise<void> {
 
   const existing = supabase.getChannels().find((item) => item.topic === 'realtime:yard-feed');
   if (existing) {
-    channel = existing;
-    return;
+    await supabase.removeChannel(existing);
   }
 
   channel = supabase
@@ -104,9 +104,23 @@ async function ensureChannel(): Promise<void> {
       const row = payload as FeedCountPayload;
       if (row?.postId) listeners.forEach((listener) => listener.onCounts?.(row));
     })
+    .on('broadcast', { event: 'post_removed' }, ({ payload }) => {
+      const postId = (payload as { postId?: string })?.postId;
+      if (postId) listeners.forEach((listener) => listener.onRemove?.(postId));
+    })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, (payload) => {
-      const row = payload.new as { id?: string; like_count?: number; comment_count?: number };
-      if (row?.id) listeners.forEach((listener) => listener.onPostRow?.(row));
+      const row = payload.new as {
+        id?: string;
+        like_count?: number;
+        comment_count?: number;
+        status?: string;
+      };
+      if (!row?.id) return;
+      if (row.status === 'removed_by_admin' || row.status === 'deleted' || row.status === 'deleted_by_owner') {
+        listeners.forEach((listener) => listener.onRemove?.(row.id!));
+      } else {
+        listeners.forEach((listener) => listener.onPostRow?.(row));
+      }
     });
 
   channel.subscribe((status) => {

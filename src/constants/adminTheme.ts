@@ -1,0 +1,15 @@
+export const adminColors = {
+  evergreen: '#011E14',
+  evergreenSoft: '#163328',
+  accent: '#E8843A',
+  cream: '#FAF7F2',
+  card: '#FFFFFF',
+  line: '#EDE8E1',
+  muted: '#727974',
+  redBadge: '#DC2626',
+  emeraldBadge: '#15803D',
+  sidebarMuted: '#A3B8B0',
+  sidebarDim: '#476457',
+  sidebarActive: '#1B4D3E',
+  sidebarFooter: '#0A261B',
+} as const;

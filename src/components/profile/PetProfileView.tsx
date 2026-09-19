@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, usePathname, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,9 +21,15 @@ import { ReportPostModal } from '@/components/feed/ReportPostModal';
 import { ProfileSkeleton } from '@/components/skeletons';
 import { EditPetProfileModal } from '@/components/profile/EditPetProfileModal';
 import { PackMembersModal } from '@/components/profile/PackMembersModal';
+import { PetStatusBadges } from '@/components/profile/PetStatusBadges';
 import { SendWagButton } from '@/components/social/SendWagButton';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { startFollowRealtime } from '@/lib/subscribeFollowEvents';
+import {
+  applyPetBadgeToPet,
+  applyPetBadgeToPosts,
+  subscribePetBadges,
+} from '@/lib/subscribePetBadges';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
 import { getPetSpecies, getPostVerb, getPostVerbPlural } from '@/lib/petVerbMap';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -34,11 +40,11 @@ type TabId = 'barks' | 'treats' | 'info';
 
 type Props = {
   petId: string;
-  showLogout?: boolean;
-  onLogout?: () => void;
 };
 
-export function PetProfileView({ petId, showLogout, onLogout }: Props) {
+export function PetProfileView({ petId }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
   const activePet = useAuthStore((s) => s.activePet);
   const user = useAuthStore((s) => s.user);
   const lastFollowEvent = usePetSocialStore((s) => s.lastEvent);
@@ -75,6 +81,8 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
   );
   const petIdRef = useRef(activePet?.id);
   petIdRef.current = activePet?.id;
+  void router;
+  void pathname;
 
   const load = useCallback(async (silent = false) => {
     if (!silent) {
@@ -126,14 +134,25 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
   }, [load]);
 
   useEffect(() => {
-    return subscribeYardFeed({
+    const unsubFeed = subscribeYardFeed({
       onCounts: (payload) => {
         setPosts((prev) => applyFeedCounts(prev, payload, petIdRef.current));
       },
       onPostRow: (row) => {
         setPosts((prev) => applyPostRowCounts(prev, row));
       },
+      onRemove: (postId) => {
+        setPosts((prev) => prev.filter((item) => item.id !== postId));
+      },
     });
+    const unsubBadges = subscribePetBadges((payload) => {
+      setPet((prev) => applyPetBadgeToPet(prev, payload));
+      setPosts((prev) => applyPetBadgeToPosts(prev, payload));
+    });
+    return () => {
+      unsubFeed();
+      unsubBadges();
+    };
   }, []);
 
   useEffect(() => {
@@ -323,6 +342,7 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
               <Text style={styles.breedChipLabel}>{pet.breed || 'Companion'}</Text>
             </View>
           </View>
+          <PetStatusBadges isVerified={pet.is_verified} isFoundingPet={pet.is_founding_pet} />
           <View style={styles.metaRow}>
             {pet.username ? <Text style={styles.meta}>@{pet.username}</Text> : null}
             {pet.city ? (
@@ -420,11 +440,6 @@ export function PetProfileView({ petId, showLogout, onLogout }: Props) {
             </View>
           )}
 
-          {showLogout && onLogout ? (
-            <Pressable onPress={onLogout} style={[styles.logout, { minHeight: TapTarget }]}>
-              <Text style={styles.logoutLabel}>Log out</Text>
-            </Pressable>
-          ) : null}
         </View>
       </ScrollView>
 
@@ -660,13 +675,4 @@ const styles = StyleSheet.create({
   emptyTitle: { fontFamily: AppFonts.bodySemi, fontSize: 16, color: '#011E14', textAlign: 'center' },
   emptyBody: { fontFamily: AppFonts.body, fontSize: 14, color: '#727974', textAlign: 'center' },
   list: { gap: 16 },
-  logout: {
-    marginTop: 24,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: palette.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoutLabel: { fontFamily: AppFonts.bodySemi, fontSize: 16, color: palette.brown },
 });
