@@ -23,6 +23,7 @@ import { CreatePackBottomSheet } from '@/components/packs/CreatePackBottomSheet'
 import { PackTitleWithBadges } from '@/components/packs/PackTitleWithBadges';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { isPackJoined } from '@/lib/communityStatus';
+import { applyPackStatusToList, subscribePackStatus } from '@/lib/subscribePackStatus';
 import { getSupabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Community } from '@/types/api';
@@ -102,6 +103,13 @@ export default function PacksScreen() {
       channel?.unsubscribe();
     };
   }, [load]);
+
+  useEffect(() => {
+    return subscribePackStatus((payload) => {
+      setPacks((list) => applyPackStatusToList(list, payload, { hideInactive: true }));
+      setMine((list) => applyPackStatusToList(list, payload, { hideInactive: true }));
+    });
+  }, []);
 
   const featuredPack = packs.find((pack) => pack.slug === 'golden-retriever-club') || packs[0];
   const remainingPacks = packs.filter((pack) => pack.id !== featuredPack?.id);

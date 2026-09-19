@@ -18,8 +18,10 @@ import { useRouter } from 'expo-router';
 
 import { createComment, getComments, likePost } from '@/api/posts';
 import { ListRowsSkeleton } from '@/components/skeletons';
+import { PetStatusBadges } from '@/components/profile/PetStatusBadges';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { formatRelativeTime } from '@/lib/formatTime';
+import { petHref } from '@/lib/petHref';
 import { getCommentVerb, getCommentVerbPlural } from '@/lib/petVerbMap';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { CommentItem, Post } from '@/types/api';
@@ -173,7 +175,7 @@ export function PostCard({ post, onReport, onPatch, onPress }: Props) {
           <Pressable
             style={styles.authorRow}
             onPress={() => {
-              if (pet?.id) router.push(`/pet/${pet.id}`);
+              if (pet?.id) router.push(petHref(pet));
             }}>
             {authorAvatar ? (
               <Image source={{ uri: authorAvatar }} style={styles.avatar} />
@@ -185,6 +187,11 @@ export function PostCard({ post, onReport, onPatch, onPress }: Props) {
             <View style={styles.authorText}>
               <View style={styles.nameRow}>
                 <Text style={styles.name}>{authorName}</Text>
+                <PetStatusBadges
+                  compact
+                  isVerified={pet?.is_verified}
+                  isFoundingPet={pet?.is_founding_pet}
+                />
                 {isQuestion ? (
                   <Text style={styles.inPack}>
                     {' '}
@@ -428,7 +435,7 @@ const styles = StyleSheet.create({
     borderColor: '#ede8e1',
   },
   authorText: { flex: 1 },
-  nameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  nameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   name: { fontFamily: AppFonts.heading, fontSize: 16, color: '#163328' },
   inPack: { fontFamily: AppFonts.body, fontSize: 12, color: palette.faded },
   packName: { fontFamily: AppFonts.bodySemi, color: palette.forest },

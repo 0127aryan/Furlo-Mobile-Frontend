@@ -26,6 +26,8 @@ import { PackTitleWithBadges } from '@/components/packs/PackTitleWithBadges';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { DEFAULT_PACK_RULES, isPackJoined } from '@/lib/communityStatus';
 import { usePostVerb } from '@/hooks/usePostVerb';
+import { applyPetBadgeToPosts, subscribePetBadges } from '@/lib/subscribePetBadges';
+import { applyPackStatusToItem, subscribePackStatus } from '@/lib/subscribePackStatus';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
 import { getSupabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -91,14 +93,32 @@ export default function CommunityHubScreen() {
   }, [load]);
 
   useEffect(() => {
-    return subscribeYardFeed({
+    const unsubFeed = subscribeYardFeed({
       onCounts: (payload) => {
         setPosts((prev) => applyFeedCounts(prev, payload, petIdRef.current));
       },
       onPostRow: (row) => {
         setPosts((prev) => applyPostRowCounts(prev, row));
       },
+      onRemove: (postId) => {
+        setPosts((prev) => prev.filter((item) => item.id !== postId));
+      },
     });
+    const unsubBadges = subscribePetBadges((payload) => {
+      setPosts((prev) => applyPetBadgeToPosts(prev, payload));
+    });
+    const unsubPacks = subscribePackStatus((payload) => {
+      setCommunity((prev) => {
+        if (!prev) return prev;
+        const next = applyPackStatusToItem(prev, payload);
+        return next && next.is_active !== false ? next : prev;
+      });
+    });
+    return () => {
+      unsubFeed();
+      unsubBadges();
+      unsubPacks();
+    };
   }, []);
 
   const loadRef = useRef(load);

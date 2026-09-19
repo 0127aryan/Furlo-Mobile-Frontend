@@ -7,6 +7,8 @@ import { usePostVerb } from '@/hooks/usePostVerb';
 import { useTheme } from '@/hooks/use-theme';
 import { registerPushTokenWithBackend } from '@/lib/pushNotifications';
 import { startFollowRealtime } from '@/lib/subscribeFollowEvents';
+import { subscribePetBadges } from '@/lib/subscribePetBadges';
+import { subscribePackStatus } from '@/lib/subscribePackStatus';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function TabsLayout() {
@@ -20,6 +22,12 @@ export default function TabsLayout() {
     if (!user?.id) return;
     startFollowRealtime();
     void registerPushTokenWithBackend();
+    const unsubBadges = subscribePetBadges(() => undefined);
+    const unsubPacks = subscribePackStatus(() => undefined);
+    return () => {
+      unsubBadges();
+      unsubPacks();
+    };
   }, [user?.id]);
 
   if (isHydrated && !user) {

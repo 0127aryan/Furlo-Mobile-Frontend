@@ -7,6 +7,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { followPet } from '@/api/auth';
 import { SendWagButton } from '@/components/social/SendWagButton';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
+import { petHref } from '@/lib/petHref';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { CommunityMember } from '@/types/api';
 
@@ -39,7 +40,7 @@ export function CommunityMemberRow({ member }: Props) {
 
   return (
     <View style={styles.row}>
-      <Pressable onPress={() => router.push(`/pet/${member.id}`)} style={styles.info}>
+      <Pressable onPress={() => router.push(petHref(member))} style={styles.info}>
         {member.profile_image_url ? (
           <Image source={{ uri: member.profile_image_url }} style={styles.avatar} />
         ) : (

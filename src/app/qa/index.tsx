@@ -20,6 +20,8 @@ import { ReportPostModal } from '@/components/feed/ReportPostModal';
 import { QuestionListSkeleton } from '@/components/skeletons';
 import { AskQuestionBottomSheet } from '@/components/qa/AskQuestionBottomSheet';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
+import { petHref } from '@/lib/petHref';
+import { applyPetBadgeToPosts, subscribePetBadges } from '@/lib/subscribePetBadges';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { HelperPet, Post, QAFilterTab, QuestionPost, TrendingQuestion } from '@/types/api';
@@ -94,7 +96,7 @@ export default function QAHubScreen() {
   }, [loadSidebars]);
 
   useEffect(() => {
-    return subscribeYardFeed({
+    const unsubFeed = subscribeYardFeed({
       onCounts: (payload) => {
         setQuestions((prev) => applyFeedCounts(prev, payload, petIdRef.current));
         if (payload.postId) {
@@ -135,7 +137,18 @@ export default function QAHubScreen() {
           );
         }
       },
+      onRemove: (postId) => {
+        setQuestions((prev) => prev.filter((item) => item.id !== postId));
+        setTrending((prev) => prev.filter((item) => item.id !== postId));
+      },
     });
+    const unsubBadges = subscribePetBadges((payload) => {
+      setQuestions((prev) => applyPetBadgeToPosts(prev, payload));
+    });
+    return () => {
+      unsubFeed();
+      unsubBadges();
+    };
   }, []);
 
   const patchQuestion = useCallback(
@@ -185,7 +198,7 @@ export default function QAHubScreen() {
               {helpers.map((helper) => (
                 <Pressable
                   key={helper.id}
-                  onPress={() => router.push(`/pet/${helper.id}`)}
+                  onPress={() => router.push(petHref(helper))}
                   style={styles.helperCard}>
                   <View style={styles.helperAvatarWrap}>
                     {helper.profile_image_url ? (

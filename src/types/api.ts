@@ -4,6 +4,7 @@ export interface User {
   is_admin: boolean;
   status: string;
   name?: string;
+  role?: string;
 }
 
 export interface Pet {
@@ -20,6 +21,8 @@ export interface Pet {
   gender?: string;
   bio?: string;
   created_at?: string;
+  is_verified?: boolean;
+  is_founding_pet?: boolean;
   users?: {
     id: string;
     name?: string;
@@ -95,6 +98,8 @@ export interface PetAuthor {
   species?: string;
   pet_type?: string;
   profile_image_url: string;
+  is_verified?: boolean;
+  is_founding_pet?: boolean;
 }
 
 export interface AcceptedAnswer {
@@ -202,6 +207,7 @@ export interface Community {
   status?: CommunityStatus | string | null;
   is_approved?: boolean;
   is_verified?: boolean;
+  is_active?: boolean;
   joined?: boolean;
   is_joined?: boolean;
   trending?: boolean;

@@ -12,6 +12,7 @@ import {
 
 import { ListRowsSkeleton } from '@/components/skeletons';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
+import { petHref } from '@/lib/petHref';
 import type { PackMember } from '@/types/api';
 
 type Props = {
@@ -37,7 +38,7 @@ export function PackMembersModal({
 
   function openPet(member: PackMember) {
     onClose();
-    router.push(`/pet/${member.id}`);
+    router.push(petHref(member));
   }
 
   return (
