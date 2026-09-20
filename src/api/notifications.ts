@@ -1,7 +1,7 @@
 import { apiFetch } from '@/api/client';
 import type { NotificationCategory, NotificationItem, NotificationSettings } from '@/types/api';
 
-export async function getNotifications(category: NotificationCategory = 'all', page = 1, limit = 30) {
+export async function getNotifications(category: NotificationCategory = 'all', page = 1, limit = 10) {
   return apiFetch<{
     notifications: NotificationItem[];
     unreadCount: number;

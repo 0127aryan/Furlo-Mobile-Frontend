@@ -1,4 +1,5 @@
 import { apiFetch } from '@/api/client';
+import { PAGE_SIZE, paginationFrom, type PageParams, type PaginationMeta } from '@/lib/pagination';
 import type {
   AdminBannerItem,
   AdminBannerStyle,
@@ -17,8 +18,15 @@ export function getAdminStats() {
   return apiFetch<{ stats: AdminStats; recentPets: AdminRecentPet[] }>('/admin/stats');
 }
 
-export function getAdminReports() {
-  return apiFetch<{ reports: AdminReportItem[] }>('/admin/reports');
+export function getAdminReports(params?: PageParams & { status?: 'all' | 'open' | 'resolved' }) {
+  const query = new URLSearchParams();
+  if (params?.status && params.status !== 'all') query.set('status', params.status);
+  query.set('page', String(params?.page ?? 1));
+  query.set('limit', String(params?.limit ?? PAGE_SIZE));
+  return apiFetch<PaginationMeta & { reports: AdminReportItem[] }>(`/admin/reports?${query.toString()}`).then((data) => ({
+    reports: data.reports ?? [],
+    ...paginationFrom(data),
+  }));
 }
 
 export function postAdminReportAction(reportId: string, action: AdminReportAction) {
@@ -28,8 +36,19 @@ export function postAdminReportAction(reportId: string, action: AdminReportActio
   });
 }
 
-export function getAdminCommunitiesPending() {
-  return apiFetch<{ communities: AdminCommunityItem[] }>('/admin/communities/pending');
+export function getAdminCommunitiesPending(
+  params?: PageParams & { status?: 'all' | 'pending' | 'approved' | 'rejected' },
+) {
+  const query = new URLSearchParams();
+  if (params?.status && params.status !== 'all') query.set('status', params.status);
+  query.set('page', String(params?.page ?? 1));
+  query.set('limit', String(params?.limit ?? PAGE_SIZE));
+  return apiFetch<PaginationMeta & { communities: AdminCommunityItem[] }>(
+    `/admin/communities/pending?${query.toString()}`,
+  ).then((data) => ({
+    communities: data.communities ?? [],
+    ...paginationFrom(data),
+  }));
 }
 
 export function approveAdminCommunity(id: string) {
@@ -59,11 +78,22 @@ export function deleteAdminCommunity(id: string) {
   });
 }
 
-export function getAdminPets(search = '', filter: 'all' | 'verified' | 'founding' = 'all') {
+export function getAdminPets(
+  search = '',
+  filter: 'all' | 'verified' | 'founding' = 'all',
+  params?: PageParams,
+) {
   const query = new URLSearchParams();
   if (search) query.set('search', search);
   query.set('filter', filter);
-  return apiFetch<{ pets: AdminPetItem[]; totalCount: number }>(`/admin/pets?${query.toString()}`);
+  query.set('page', String(params?.page ?? 1));
+  query.set('limit', String(params?.limit ?? PAGE_SIZE));
+  return apiFetch<PaginationMeta & { pets: AdminPetItem[]; totalCount: number }>(`/admin/pets?${query.toString()}`).then(
+    (data) => ({
+      pets: data.pets ?? [],
+      ...paginationFrom(data),
+    }),
+  );
 }
 
 export function updateAdminPetBadges(petId: string, isVerified: boolean, isFoundingPet: boolean) {
@@ -80,11 +110,22 @@ export function updateAdminPetStatus(petId: string, status: 'active' | 'suspende
   });
 }
 
-export function getAdminUsers(search = '', filter: 'all' | 'active' | 'suspended' | 'admin' | 'deleted' = 'all') {
+export function getAdminUsers(
+  search = '',
+  filter: 'all' | 'active' | 'suspended' | 'admin' | 'deleted' = 'all',
+  params?: PageParams,
+) {
   const query = new URLSearchParams();
   if (search) query.set('search', search);
   query.set('filter', filter);
-  return apiFetch<{ users: AdminUserItem[]; totalCount: number }>(`/admin/users?${query.toString()}`);
+  query.set('page', String(params?.page ?? 1));
+  query.set('limit', String(params?.limit ?? PAGE_SIZE));
+  return apiFetch<PaginationMeta & { users: AdminUserItem[]; totalCount: number }>(
+    `/admin/users?${query.toString()}`,
+  ).then((data) => ({
+    users: data.users ?? [],
+    ...paginationFrom(data),
+  }));
 }
 
 export function updateAdminUserStatus(
@@ -101,8 +142,14 @@ export function getActiveBanner() {
   return apiFetch<{ banner: AdminBannerItem | null }>('/admin/banners/active', { skipAuth: true });
 }
 
-export function getAdminBanners() {
-  return apiFetch<{ banners: AdminBannerItem[] }>('/admin/banners');
+export function getAdminBanners(params?: PageParams) {
+  const query = new URLSearchParams();
+  query.set('page', String(params?.page ?? 1));
+  query.set('limit', String(params?.limit ?? PAGE_SIZE));
+  return apiFetch<PaginationMeta & { banners: AdminBannerItem[] }>(`/admin/banners?${query.toString()}`).then((data) => ({
+    banners: data.banners ?? [],
+    ...paginationFrom(data),
+  }));
 }
 
 export function createAdminBanner(body: {
@@ -129,8 +176,16 @@ export function deleteAdminBanner(id: string) {
   return apiFetch<{ success: boolean }>(`/admin/banners/${id}`, { method: 'DELETE' });
 }
 
-export function getAdminBroadcastHistory() {
-  return apiFetch<{ history: AdminBroadcastHistoryItem[] }>('/admin/broadcast/history');
+export function getAdminBroadcastHistory(params?: PageParams) {
+  const query = new URLSearchParams();
+  query.set('page', String(params?.page ?? 1));
+  query.set('limit', String(params?.limit ?? PAGE_SIZE));
+  return apiFetch<PaginationMeta & { history: AdminBroadcastHistoryItem[] }>(
+    `/admin/broadcast/history?${query.toString()}`,
+  ).then((data) => ({
+    history: data.history ?? [],
+    ...paginationFrom(data),
+  }));
 }
 
 export function sendAdminBroadcast(body: {

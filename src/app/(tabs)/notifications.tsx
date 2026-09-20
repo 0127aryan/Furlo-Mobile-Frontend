@@ -31,6 +31,7 @@ import {
   saveNotificationDevicePrefs,
 } from '@/lib/notificationDevicePrefs';
 import { requestPushPermission, shouldShowPushPermissionSheet } from '@/lib/pushNotifications';
+import { appendUniqueById, PAGE_SIZE } from '@/lib/pagination';
 import { notificationMatchesFilter } from '@/lib/notificationFilters';
 import { subscribeNotifications } from '@/lib/subscribeNotifications';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -54,24 +55,38 @@ export default function NotificationsScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
   const [pushSheetOpen, setPushSheetOpen] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const filterRef = useRef(filter);
   filterRef.current = filter;
+  const pageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
 
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const load = useCallback(async (silent = false, reset = true) => {
+    if (!reset && (loadingMoreRef.current || !hasMoreRef.current)) return;
+    if (!silent && reset) setLoading(true);
+    if (!reset) {
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+    }
+    const nextPage = reset ? 1 : pageRef.current + 1;
     try {
-      const res = await getNotifications(filter);
-      setNotifications(res.notifications || []);
+      const res = await getNotifications(filter, nextPage, PAGE_SIZE);
+      setNotifications((prev) => (reset ? res.notifications || [] : appendUniqueById(prev, res.notifications || [])));
       setUnreadCount(res.unreadCount || 0);
+      pageRef.current = nextPage;
+      hasMoreRef.current = (res.page * res.limit) < (res.totalCount || 0);
       setLoadError(null);
     } catch {
-      if (!silent) {
+      if (!silent && reset) {
         setNotifications([]);
         setUnreadCount(0);
         setLoadError('Could not load notifications. Pull to refresh or try again.');
       }
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && reset) setLoading(false);
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
   }, [filter]);
 
@@ -81,9 +96,9 @@ export default function NotificationsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load(true);
+      void load(true, pageRef.current === 1);
       const poll = setInterval(() => {
-        load(true);
+        if (pageRef.current === 1) void load(true, true);
       }, 12000);
 
       void shouldShowPushPermissionSheet().then((show) => {
@@ -255,7 +270,14 @@ export default function NotificationsScreen() {
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.amber} />
-          }>
+          }
+          onScroll={(event) => {
+            const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+            if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 120) {
+              void load(true, false);
+            }
+          }}
+          scrollEventThrottle={200}>
           {todayItems.length > 0 ? (
             <View style={styles.section}>
               <SectionHeader title="Today" subtitle="Recent sniffs & wags" />
@@ -295,6 +317,11 @@ export default function NotificationsScreen() {
                   }
                 />
               ))}
+            </View>
+          ) : null}
+          {loadingMore ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <ActivityIndicator color={palette.amber} />
             </View>
           ) : null}
         </ScrollView>

@@ -234,6 +234,7 @@ export interface CommunityHub {
   joined: boolean;
   isJoined?: boolean;
   members: CommunityMember[];
+  memberCount?: number;
   admins: CommunityMember[];
   posts?: Post[];
   announcement: { title: string; content: string } | null;

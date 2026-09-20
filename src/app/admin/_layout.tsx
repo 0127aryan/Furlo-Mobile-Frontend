@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getAdminReports, getAdminStats } from '@/api/admin';
+import { getAdminStats } from '@/api/admin';
 import { ApiError } from '@/api/client';
 import { AdminAccessDenied } from '@/components/admin/AdminAccessDenied';
 import { AdminDrawer } from '@/components/admin/AdminDrawer';
@@ -30,16 +30,10 @@ export default function AdminLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const refreshBadgeCounts = useCallback(async () => {
-    const [statsRes, reportsRes] = await Promise.all([
-      getAdminStats().catch(() => null),
-      getAdminReports().catch(() => null),
-    ]);
-    const openFromReports = reportsRes?.reports
-      ? reportsRes.reports.filter((r) => r.status === 'open').length
-      : undefined;
+    const statsRes = await getAdminStats().catch(() => null);
     setBadgeCounts({
       pendingApprovals: statsRes?.stats?.pendingApprovals ?? 0,
-      openReports: openFromReports ?? statsRes?.stats?.openReports ?? 0,
+      openReports: statsRes?.stats?.openReports ?? 0,
     });
   }, [setBadgeCounts]);
 
@@ -55,13 +49,9 @@ export default function AdminLayout() {
       try {
         const data = await getAdminStats();
         if (cancelled) return;
-        const reports = await getAdminReports().catch(() => null);
-        const openFromReports = reports?.reports
-          ? reports.reports.filter((r) => r.status === 'open').length
-          : undefined;
         setBadgeCounts({
           pendingApprovals: data.stats?.pendingApprovals ?? 0,
-          openReports: openFromReports ?? data.stats?.openReports ?? 0,
+          openReports: data.stats?.openReports ?? 0,
         });
         setAuthorized(true);
       } catch (err) {

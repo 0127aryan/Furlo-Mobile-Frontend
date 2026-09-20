@@ -5,17 +5,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Modal,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getCommunity, joinCommunity } from '@/api/communities';
+import { getCommunity, joinCommunity, listCommunityMembers } from '@/api/communities';
 import { getFeed } from '@/api/posts';
 import { CommunityMemberRow } from '@/components/community/CommunityMemberRow';
 import { CreatePostForm } from '@/components/feed/CreatePostForm';
@@ -26,13 +26,14 @@ import { PackTitleWithBadges } from '@/components/packs/PackTitleWithBadges';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { DEFAULT_PACK_RULES, isPackJoined } from '@/lib/communityStatus';
 import { usePostVerb } from '@/hooks/usePostVerb';
+import { appendUniqueById, PAGE_SIZE } from '@/lib/pagination';
 import { applyPetBadgeToPosts, subscribePetBadges } from '@/lib/subscribePetBadges';
 import { applyPackStatusToItem, subscribePackStatus } from '@/lib/subscribePackStatus';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
 import { getSupabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuthStore } from '@/store/useAuthStore';
-import type { Community, CommunityHub, Post } from '@/types/api';
+import type { Community, CommunityHub, CommunityMember, Post } from '@/types/api';
 
 type HubTab = 'feed' | 'members' | 'about';
 
@@ -51,9 +52,20 @@ export default function CommunityHubScreen() {
   petIdRef.current = activePet?.id;
   const [hub, setHub] = useState<CommunityHub | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [members, setMembers] = useState<CommunityMember[]>([]);
   const [tab, setTab] = useState<HubTab>('feed');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [postHasMore, setPostHasMore] = useState(true);
+  const [memberHasMore, setMemberHasMore] = useState(true);
+  const [postTotal, setPostTotal] = useState(0);
+  const [memberTotal, setMemberTotal] = useState(0);
+  const postPageRef = useRef(1);
+  const memberPageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
+  const postHasMoreRef = useRef(true);
+  const memberHasMoreRef = useRef(true);
   const [composerOpen, setComposerOpen] = useState(false);
   const [joining, setJoining] = useState(false);
   const [reportPostId, setReportPostId] = useState<string | null>(null);
@@ -65,17 +77,63 @@ export default function CommunityHubScreen() {
     if (!slug) return;
     const detail = await getCommunity(slug, activePet?.id);
     setHub(detail);
-    if (detail.posts && detail.posts.length > 0) {
-      setPosts(detail.posts);
-      return;
-    }
+    const previewMembers = detail.members || [];
+    setMembers(previewMembers);
+    const totalMembers = detail.memberCount ?? detail.community?.member_count ?? previewMembers.length;
+    setMemberTotal(totalMembers);
+    memberPageRef.current = 1;
+    memberHasMoreRef.current = previewMembers.length < totalMembers;
+    setMemberHasMore(memberHasMoreRef.current);
     try {
-      const feed = await getFeed(activePet?.id, detail.community.id);
-      setPosts(feed);
+      const feed = await getFeed(activePet?.id, detail.community.id, { page: 1, limit: PAGE_SIZE });
+      setPosts(feed.posts);
+      setPostTotal(feed.totalCount);
+      postPageRef.current = 1;
+      postHasMoreRef.current = feed.hasMore;
+      setPostHasMore(feed.hasMore);
     } catch {
       setPosts([]);
+      setPostTotal(0);
+      postHasMoreRef.current = false;
+      setPostHasMore(false);
     }
   }, [slug, activePet?.id]);
+
+  const loadMorePosts = useCallback(async () => {
+    if (!community?.id || loadingMoreRef.current || !postHasMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    const nextPage = postPageRef.current + 1;
+    try {
+      const feed = await getFeed(activePet?.id, community.id, { page: nextPage, limit: PAGE_SIZE });
+      setPosts((prev) => appendUniqueById(prev, feed.posts));
+      postPageRef.current = nextPage;
+      postHasMoreRef.current = feed.hasMore;
+      setPostHasMore(feed.hasMore);
+      setPostTotal(feed.totalCount);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [activePet?.id, community?.id]);
+
+  const loadMoreMembers = useCallback(async () => {
+    if (!slug || loadingMoreRef.current || !memberHasMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    const nextPage = memberPageRef.current + 1;
+    try {
+      const data = await listCommunityMembers(String(slug), { page: nextPage, limit: PAGE_SIZE });
+      setMembers((prev) => appendUniqueById(prev, data.members));
+      memberPageRef.current = nextPage;
+      memberHasMoreRef.current = data.hasMore;
+      setMemberHasMore(data.hasMore);
+      setMemberTotal(data.totalCount);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [slug]);
 
   useEffect(() => {
     let alive = true;
@@ -108,10 +166,11 @@ export default function CommunityHubScreen() {
       setPosts((prev) => applyPetBadgeToPosts(prev, payload));
     });
     const unsubPacks = subscribePackStatus((payload) => {
-      setCommunity((prev) => {
-        if (!prev) return prev;
-        const next = applyPackStatusToItem(prev, payload);
-        return next && next.is_active !== false ? next : prev;
+      setHub((prev) => {
+        if (!prev?.community) return prev;
+        const next = applyPackStatusToItem(prev.community, payload);
+        if (!next || next.is_active === false) return prev;
+        return { ...prev, community: next };
       });
     });
     return () => {
@@ -250,15 +309,26 @@ export default function CommunityHubScreen() {
 
   const cover = community.cover_image_url || community.logo_image_url;
   const logo = community.logo_image_url || community.cover_image_url;
-  const previewMembers = (hub.members || []).slice(0, 4);
-  const extraMembers = Math.max(0, (community.member_count || hub.members.length) - previewMembers.length);
+  const previewMembers = members.slice(0, 4);
+  const extraMembers = Math.max(0, (memberTotal || community.member_count || members.length) - previewMembers.length);
+  const listData = tab === 'feed' ? posts.filter((post) => post?.id) : tab === 'members' ? members : [];
 
   return (
     <View style={styles.safe}>
-      <ScrollView
-        stickyHeaderIndices={[]}
+      <FlatList
+        data={listData}
+        keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.amber} />}
-        contentContainerStyle={{ paddingBottom: 120 }}>
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        onEndReached={() => {
+          if (tab === 'feed') void loadMorePosts();
+          if (tab === 'members') void loadMoreMembers();
+        }}
+        onEndReachedThreshold={0.4}
+        ItemSeparatorComponent={tab === 'feed' ? () => <View style={{ height: 16 }} /> : null}
+        ListHeaderComponent={
+        <View>
         <View>
           {cover ? (
             <Image source={{ uri: cover }} style={styles.hero} />
@@ -340,9 +410,9 @@ export default function CommunityHubScreen() {
               <Pressable key={id} onPress={() => setTab(id)} style={styles.tab}>
                 <Text style={[styles.tabText, tab === id && styles.tabTextOn]}>
                   {id === 'feed'
-                    ? `Feed (${posts.length})`
+                    ? `Feed (${postTotal || posts.length})`
                     : id === 'members'
-                      ? `Pack Members (${hub.members?.length || 0})`
+                      ? `Pack Members (${memberTotal || members.length})`
                       : 'About & Rules'}
                 </Text>
                 {tab === id ? <View style={styles.tabLine} /> : null}
@@ -351,7 +421,7 @@ export default function CommunityHubScreen() {
           </View>
 
           {tab === 'feed' ? (
-            <View>
+            <View style={styles.feedIntro}>
               {joined ? (
                 <Pressable onPress={() => setComposerOpen(true)} style={styles.inlineComposer}>
                   <Text style={styles.composerText} numberOfLines={1}>
@@ -368,32 +438,6 @@ export default function CommunityHubScreen() {
                     <Text style={styles.joinText}>Join Pack 🐾</Text>
                   </Pressable>
                 </View>
-              )}
-              {posts.length === 0 ? (
-                <Text style={styles.empty}>No {verbPluralLower} in this pack yet. Be the first pet to publish a {verbLower} in {community.name}!</Text>
-              ) : (
-                posts.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    onReport={setReportPostId}
-                    onPatch={(id, patch) =>
-                      setPosts((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))
-                    }
-                  />
-                ))
-              )}
-            </View>
-          ) : null}
-
-          {tab === 'members' ? (
-            <View style={{ gap: 10 }}>
-              {(hub.members || []).length === 0 ? (
-                <Text style={styles.empty}>No members listed yet. Join the pack to become the first member! 🐾</Text>
-              ) : (
-                (hub.members || []).map((member) => (
-                  <CommunityMemberRow key={member.id} member={member} />
-                ))
               )}
             </View>
           ) : null}
@@ -415,7 +459,44 @@ export default function CommunityHubScreen() {
             </View>
           ) : null}
         </View>
-      </ScrollView>
+        </View>
+        }
+        renderItem={({ item }) =>
+          tab === 'feed' ? (
+            <View style={styles.feedItem}>
+              <PostCard
+                post={item as Post}
+                onReport={setReportPostId}
+                onPatch={(id, patch) =>
+                  setPosts((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
+                }
+              />
+            </View>
+          ) : (
+            <View style={styles.memberItem}>
+              <CommunityMemberRow member={item as CommunityMember} />
+            </View>
+          )
+        }
+        ListEmptyComponent={
+          tab === 'about' ? null : (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.empty}>
+                {tab === 'feed'
+                  ? `No ${verbPluralLower} in this pack yet. Be the first pet to publish a ${verbLower} in ${community.name}!`
+                  : 'No members listed yet. Join the pack to become the first member! 🐾'}
+              </Text>
+            </View>
+          )
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <ActivityIndicator color={palette.amber} />
+            </View>
+          ) : null
+        }
+      />
 
       {tab === 'feed' && joined ? (
         <Pressable onPress={() => setComposerOpen(true)} style={styles.composer}>
@@ -468,6 +549,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  listContent: { paddingBottom: 120, backgroundColor: palette.cream },
+  feedIntro: { marginTop: 4, marginBottom: 16 },
+  feedItem: { paddingHorizontal: 16, width: '100%' },
+  memberItem: { paddingHorizontal: 16, paddingTop: 10 },
+  emptyWrap: { paddingHorizontal: 16, paddingTop: 8 },
   body: { paddingHorizontal: 16, marginTop: -40 },
   logoRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   logo: {
@@ -555,9 +641,9 @@ const styles = StyleSheet.create({
   lockTitle: { fontFamily: AppFonts.bodySemi, fontSize: 14, color: palette.evergreen },
   lockBody: { fontFamily: AppFonts.body, fontSize: 12, color: '#424844', lineHeight: 18 },
   memberHandle: { fontFamily: AppFonts.body, fontSize: 12, color: palette.faded, marginTop: 2 },
-  tabs: { flexDirection: 'row', gap: 18, marginTop: 18, borderBottomWidth: 1, borderBottomColor: palette.cardLine },
-  tab: { paddingBottom: 10 },
-  tabText: { fontFamily: AppFonts.bodySemi, fontSize: 14, color: palette.faded },
+  tabs: { flexDirection: 'row', marginTop: 18, borderBottomWidth: 1, borderBottomColor: palette.cardLine },
+  tab: { flex: 1, paddingBottom: 10, paddingRight: 8 },
+  tabText: { fontFamily: AppFonts.bodySemi, fontSize: 13, color: palette.faded },
   tabTextOn: { color: palette.evergreen },
   tabLine: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: palette.amber, borderTopLeftRadius: 99, borderTopRightRadius: 99 },
   empty: { fontFamily: AppFonts.body, fontSize: 14, color: palette.faded, marginTop: 16 },

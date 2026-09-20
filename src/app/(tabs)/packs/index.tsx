@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -23,6 +24,7 @@ import { CreatePackBottomSheet } from '@/components/packs/CreatePackBottomSheet'
 import { PackTitleWithBadges } from '@/components/packs/PackTitleWithBadges';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { isPackJoined } from '@/lib/communityStatus';
+import { appendUniqueById, PAGE_SIZE } from '@/lib/pagination';
 import { applyPackStatusToList, subscribePackStatus } from '@/lib/subscribePackStatus';
 import { getSupabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -50,30 +52,51 @@ export default function PacksScreen() {
   const [mine, setMine] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const pageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
 
   const load = useCallback(
-    async (silent = false) => {
-      if (!silent) setLoading(true);
+    async (silent = false, reset = true) => {
+      if (!reset && (loadingMoreRef.current || !hasMoreRef.current)) return;
+      if (!silent && reset) setLoading(true);
+      if (!reset) {
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+      }
+      const nextPage = reset ? 1 : pageRef.current + 1;
       try {
-        const [list, nextCategories, myPacks] = await Promise.all([
+        const [listRes, nextCategories, myPacks] = await Promise.all([
           getCommunities({
             q: query.trim() || undefined,
             category,
             petId: activePet?.id,
+            page: nextPage,
+            limit: PAGE_SIZE,
           }),
-          getCommunityCategories().catch(() => [ALL_PACKS]),
-          activePet?.id ? getMyCommunities(activePet.id).catch(() => []) : Promise.resolve([]),
+          reset ? getCommunityCategories().catch(() => [ALL_PACKS]) : Promise.resolve(null),
+          reset && activePet?.id ? getMyCommunities(activePet.id).catch(() => []) : Promise.resolve(null),
         ]);
-        setPacks(Array.isArray(list) ? list : []);
-        setMine(Array.isArray(myPacks) ? myPacks : []);
-        setCategories(nextCategories.length > 0 ? nextCategories : [ALL_PACKS]);
-        setCategory((current) => (nextCategories.includes(current) ? current : ALL_PACKS));
+        const nextPacks = listRes.communities ?? [];
+        setPacks((prev) => (reset ? nextPacks : appendUniqueById(prev, nextPacks)));
+        pageRef.current = nextPage;
+        hasMoreRef.current = listRes.hasMore;
+        setHasMore(listRes.hasMore);
+        if (reset && nextCategories) {
+          setCategories(nextCategories.length > 0 ? nextCategories : [ALL_PACKS]);
+          setCategory((current) => (nextCategories.includes(current) ? current : ALL_PACKS));
+        }
+        if (reset && myPacks) setMine(Array.isArray(myPacks) ? myPacks : []);
       } catch {
-        if (!silent) setPacks([]);
+        if (!silent && reset) setPacks([]);
       } finally {
-        if (!silent) setLoading(false);
+        if (!silent && reset) setLoading(false);
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
       }
     },
     [query, category, activePet?.id],
@@ -269,51 +292,67 @@ export default function PacksScreen() {
           <PackListSkeleton />
         </View>
       ) : (
-        <ScrollView
+        <FlatList
+          data={remainingPacks}
+          keyExtractor={(pack) => pack.id}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.amber} />}>
-          {mine.length > 0 ? (
-            <View style={styles.mineCard}>
-              <Text style={styles.section}>My Joined Packs</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mineRow}>
-                <Pressable onPress={() => setCreateOpen(true)} style={styles.mineAdd}>
-                  <Ionicons name="add" size={22} color={palette.amber} />
-                </Pressable>
-                {mine.map((pack) => (
-                  <Pressable
-                    key={pack.id}
-                    onPress={() => router.push(`/community/${pack.slug}`)}
-                    style={styles.mineItem}>
-                    {pack.logo_image_url || pack.cover_image_url ? (
-                      <Image
-                        source={{ uri: pack.logo_image_url || pack.cover_image_url || '' }}
-                        style={styles.mineAvatar}
-                      />
-                    ) : (
-                      <View style={[styles.mineAvatar, styles.minePlaceholder]}>
-                        <Ionicons name="paw" size={22} color={palette.amber} />
-                      </View>
-                    )}
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
-          ) : null}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.amber} />}
+          onEndReached={() => {
+            void load(true, false);
+          }}
+          onEndReachedThreshold={0.4}
+          ListHeaderComponent={
+            <View>
+              {mine.length > 0 ? (
+                <View style={styles.mineCard}>
+                  <Text style={styles.section}>My Joined Packs</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mineRow}>
+                    <Pressable onPress={() => setCreateOpen(true)} style={styles.mineAdd}>
+                      <Ionicons name="add" size={22} color={palette.amber} />
+                    </Pressable>
+                    {mine.map((pack) => (
+                      <Pressable
+                        key={pack.id}
+                        onPress={() => router.push(`/community/${pack.slug}`)}
+                        style={styles.mineItem}>
+                        {pack.logo_image_url || pack.cover_image_url ? (
+                          <Image
+                            source={{ uri: pack.logo_image_url || pack.cover_image_url || '' }}
+                            style={styles.mineAvatar}
+                          />
+                        ) : (
+                          <View style={[styles.mineAvatar, styles.minePlaceholder]}>
+                            <Ionicons name="paw" size={22} color={palette.amber} />
+                          </View>
+                        )}
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
 
-          <Text style={styles.section}>Trending & Popular Packs</Text>
-          {packs.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="people-outline" size={40} color={palette.brown} />
-              <Text style={styles.emptyTitle}>No packs found</Text>
-              <Text style={styles.empty}>Try searching for another keyword or category.</Text>
-            </View>
-          ) : (
-            <>
+              <Text style={styles.section}>Trending & Popular Packs</Text>
               {featuredPack ? renderCard(featuredPack, true) : null}
-              {remainingPacks.map((pack) => renderCard(pack))}
-            </>
-          )}
-        </ScrollView>
+            </View>
+          }
+          renderItem={({ item }) => renderCard(item)}
+          ListEmptyComponent={
+            featuredPack ? null : (
+              <View style={styles.emptyCard}>
+                <Ionicons name="people-outline" size={40} color={palette.brown} />
+                <Text style={styles.emptyTitle}>No packs found</Text>
+                <Text style={styles.empty}>Try searching for another keyword or category.</Text>
+              </View>
+            )
+          }
+          ListFooterComponent={
+            loadingMore || hasMore ? (
+              <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                {loadingMore ? <ActivityIndicator color={palette.amber} /> : null}
+              </View>
+            ) : null
+          }
+        />
       )}
 
       <CreatePackBottomSheet
