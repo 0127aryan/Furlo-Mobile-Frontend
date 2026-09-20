@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,9 +15,11 @@ import {
 } from 'react-native';
 
 import { getAdminPets, getAdminUsers, updateAdminPetBadges, updateAdminPetStatus, updateAdminUserStatus } from '@/api/admin';
+import { AdminPager } from '@/components/admin/AdminPager';
 import { AdminSegmentedTabs } from '@/components/admin/AdminSegmentedTabs';
 import { PetStatusBadges } from '@/components/profile/PetStatusBadges';
 import { adminColors } from '@/constants/adminTheme';
+import { PAGE_SIZE } from '@/lib/pagination';
 import { AppFonts, TapTarget } from '@/constants/theme';
 import { petHref } from '@/lib/petHref';
 import type { AdminPetItem, AdminUserItem } from '@/types/admin';
@@ -40,6 +42,11 @@ export default function AdminPetsScreen() {
   const [userSearch, setUserSearch] = useState('');
   const [userFilter, setUserFilter] = useState<UserFilter>('all');
   const [menuUserId, setMenuUserId] = useState<string | null>(null);
+  const [petPage, setPetPage] = useState(1);
+  const [userPage, setUserPage] = useState(1);
+  const [petTotal, setPetTotal] = useState(0);
+  const [userTotal, setUserTotal] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     setMenuUserId(null);
@@ -49,25 +56,43 @@ export default function AdminPetsScreen() {
     if (directory !== 'pets') return;
     const timer = setTimeout(() => {
       setPetLoading(true);
-      getAdminPets(petSearch, petFilter)
-        .then((res) => setPets(res.pets ?? []))
+      getAdminPets(petSearch, petFilter, { page: petPage, limit: PAGE_SIZE })
+        .then((res) => {
+          setPets(res.pets ?? []);
+          setPetTotal(res.totalCount);
+          if ((res.pets ?? []).length === 0 && petPage > 1) setPetPage((p) => Math.max(1, p - 1));
+        })
         .catch(() => Alert.alert('Pets', 'Failed to fetch pet directory'))
         .finally(() => setPetLoading(false));
     }, 200);
     return () => clearTimeout(timer);
-  }, [directory, petSearch, petFilter]);
+  }, [directory, petSearch, petFilter, petPage]);
 
   useEffect(() => {
     if (directory !== 'users') return;
     const timer = setTimeout(() => {
       setUserLoading(true);
-      getAdminUsers(userSearch, userFilter)
-        .then((res) => setUsers(res.users ?? []))
+      getAdminUsers(userSearch, userFilter, { page: userPage, limit: PAGE_SIZE })
+        .then((res) => {
+          setUsers(res.users ?? []);
+          setUserTotal(res.totalCount);
+          if ((res.users ?? []).length === 0 && userPage > 1) setUserPage((p) => Math.max(1, p - 1));
+        })
         .catch(() => Alert.alert('Users', 'Failed to fetch pet lovers directory'))
         .finally(() => setUserLoading(false));
     }, 200);
     return () => clearTimeout(timer);
-  }, [directory, userSearch, userFilter]);
+  }, [directory, userSearch, userFilter, userPage]);
+
+  function goPetPage(next: number) {
+    setPetPage(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
+  function goUserPage(next: number) {
+    setUserPage(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
 
   async function toggleBadge(pet: AdminPetItem, field: 'isVerified' | 'isFoundingPet') {
     const nextVerified = field === 'isVerified' ? !pet.is_verified : pet.is_verified;
@@ -119,7 +144,10 @@ export default function AdminPetsScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      ref={scrollRef}
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled">
       <Text style={styles.h1}>Pet Directory & Badges</Text>
       <Text style={styles.sub}>Search pets, issue badges, and manage pet lover accounts.</Text>
 
@@ -136,14 +164,20 @@ export default function AdminPetsScreen() {
         <>
           <TextInput
             value={petSearch}
-            onChangeText={setPetSearch}
+            onChangeText={(value) => {
+              setPetSearch(value);
+              setPetPage(1);
+            }}
             placeholder="Search name, @username, or breed"
             placeholderTextColor={adminColors.muted}
             style={styles.search}
           />
           <AdminSegmentedTabs
             value={petFilter}
-            onChange={setPetFilter}
+            onChange={(id) => {
+              setPetFilter(id);
+              setPetPage(1);
+            }}
             tabs={[
               { id: 'all', label: 'All' },
               { id: 'verified', label: 'Verified' },
@@ -265,12 +299,16 @@ export default function AdminPetsScreen() {
               </View>
             ))
           )}
+          <AdminPager page={petPage} totalCount={petTotal} loading={petLoading} onPage={goPetPage} />
         </>
       ) : (
         <>
           <TextInput
             value={userSearch}
-            onChangeText={setUserSearch}
+            onChangeText={(value) => {
+              setUserSearch(value);
+              setUserPage(1);
+            }}
             placeholder="Search by email"
             placeholderTextColor={adminColors.muted}
             style={styles.search}
@@ -278,7 +316,10 @@ export default function AdminPetsScreen() {
           />
           <AdminSegmentedTabs
             value={userFilter}
-            onChange={setUserFilter}
+            onChange={(id) => {
+              setUserFilter(id);
+              setUserPage(1);
+            }}
             tabs={[
               { id: 'all', label: 'All' },
               { id: 'active', label: 'Active' },
@@ -363,6 +404,7 @@ export default function AdminPetsScreen() {
               </View>
             ))
           )}
+          <AdminPager page={userPage} totalCount={userTotal} loading={userLoading} onPage={goUserPage} />
         </>
       )}
     </ScrollView>

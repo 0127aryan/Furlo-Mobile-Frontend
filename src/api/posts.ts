@@ -1,4 +1,5 @@
 import { apiFetch } from '@/api/client';
+import { PAGE_SIZE, paginationFrom, type PageParams, type PaginationMeta } from '@/lib/pagination';
 import type {
   CommentItem,
   CreatePostBody,
@@ -9,13 +10,24 @@ import type {
   TrendingQuestion,
 } from '@/types/api';
 
-export async function getFeed(petId?: string, communityId?: string) {
+export type FeedPage = PaginationMeta & { posts: Post[] };
+
+export async function getFeed(
+  petId?: string,
+  communityId?: string,
+  options?: PageParams & { authorPetId?: string },
+): Promise<FeedPage> {
   const search = new URLSearchParams();
   if (petId) search.set('petId', petId);
   if (communityId) search.set('communityId', communityId);
-  const query = search.toString();
-  const data = await apiFetch<{ posts: Post[] }>(`/posts/feed${query ? `?${query}` : ''}`);
-  return data.posts ?? [];
+  if (options?.authorPetId) search.set('authorPetId', options.authorPetId);
+  search.set('page', String(options?.page ?? 1));
+  search.set('limit', String(options?.limit ?? PAGE_SIZE));
+  const data = await apiFetch<FeedPage>(`/posts/feed?${search.toString()}`);
+  return {
+    posts: data.posts ?? [],
+    ...paginationFrom(data),
+  };
 }
 
 export function getTrendingHashtags() {
@@ -65,6 +77,8 @@ export async function getQAQuestions(options: {
   filter?: QAFilterTab;
   petId?: string;
   search?: string;
+  page?: number;
+  limit?: number;
 }) {
   const search = new URLSearchParams();
   if (options.category && options.category !== 'All') {
@@ -75,11 +89,15 @@ export async function getQAQuestions(options: {
   }
   if (options.petId) search.set('petId', options.petId);
   if (options.search) search.set('search', options.search);
-  const query = search.toString();
-  const data = await apiFetch<{ questions: QuestionPost[] }>(
-    `/posts/qa/questions${query ? `?${query}` : ''}`
+  search.set('page', String(options.page ?? 1));
+  search.set('limit', String(options.limit ?? PAGE_SIZE));
+  const data = await apiFetch<PaginationMeta & { questions: QuestionPost[] }>(
+    `/posts/qa/questions?${search.toString()}`
   );
-  return data.questions ?? [];
+  return {
+    questions: data.questions ?? [],
+    ...paginationFrom(data),
+  };
 }
 
 export async function getQATrending(limit = 5) {

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 
 import { getAdminReports, postAdminReportAction } from '@/api/admin';
+import { AdminPager } from '@/components/admin/AdminPager';
 import { AdminSegmentedTabs } from '@/components/admin/AdminSegmentedTabs';
 import { AdminSheet } from '@/components/admin/AdminSheet';
 import { adminColors } from '@/constants/adminTheme';
 import { AppFonts, TapTarget } from '@/constants/theme';
+import { PAGE_SIZE } from '@/lib/pagination';
 import { subscribeModerationQueue } from '@/lib/subscribeModerationQueue';
 import { useAdminStore } from '@/store/useAdminStore';
 import type { AdminReportAction, AdminReportItem } from '@/types/admin';
@@ -70,12 +72,20 @@ export default function AdminModerationScreen() {
   const [filter, setFilter] = useState<Filter>('open');
   const [selected, setSelected] = useState<AdminReportItem | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const openReports = useAdminStore((s) => s.openReports);
 
-  const fetchReports = useCallback(async () => {
+  const fetchReports = useCallback(async (nextPage = page) => {
     setLoading(true);
     try {
-      const res = await getAdminReports();
+      const res = await getAdminReports({ status: filter, page: nextPage, limit: PAGE_SIZE });
       setReports(res.reports ?? []);
+      setTotalCount(res.totalCount);
+      if ((res.reports ?? []).length === 0 && nextPage > 1) {
+        setPage((p) => Math.max(1, p - 1));
+      }
       setSelected((prev) => {
         if (!prev) return prev;
         return res.reports?.find((r) => r.id === prev.id) ?? prev;
@@ -85,13 +95,14 @@ export default function AdminModerationScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter, page]);
 
   useEffect(() => {
-    void fetchReports();
+    void fetchReports(page);
     return subscribeModerationQueue((payload) => {
       if (payload.type === 'report_created') {
-        void fetchReports();
+        void fetchReports(1);
+        setPage(1);
       } else if (payload.type === 'report_action' && payload.reportId) {
         setReports((prev) =>
           prev.map((r) =>
@@ -131,12 +142,10 @@ export default function AdminModerationScreen() {
     }
   }
 
-  const filtered = reports.filter((r) => (filter === 'all' ? true : r.status === filter));
-  const openCount = reports.filter((r) => r.status === 'open').length;
-  const resolvedCount = reports.filter((r) => r.status === 'resolved').length;
+  const filtered = reports;
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
       <Text style={styles.h1}>Content Moderation Queue</Text>
       <Text style={styles.sub}>
         Review flagged posts, comments, or pet profiles. Tap a card for the full content preview.
@@ -144,11 +153,14 @@ export default function AdminModerationScreen() {
 
       <AdminSegmentedTabs
         value={filter}
-        onChange={setFilter}
+        onChange={(id) => {
+          setFilter(id);
+          setPage(1);
+        }}
         tabs={[
-          { id: 'open', label: 'Open Reports', count: openCount },
-          { id: 'resolved', label: 'Resolved', count: resolvedCount },
-          { id: 'all', label: 'All History', count: reports.length },
+          { id: 'open', label: 'Open Reports', count: openReports },
+          { id: 'resolved', label: 'Resolved' },
+          { id: 'all', label: 'All History' },
         ]}
       />
 
@@ -192,6 +204,16 @@ export default function AdminModerationScreen() {
           </Pressable>
         ))
       )}
+
+      <AdminPager
+        page={page}
+        totalCount={totalCount}
+        loading={loading}
+        onPage={(next) => {
+          setPage(next);
+          scrollRef.current?.scrollTo({ y: 0, animated: true });
+        }}
+      />
 
       <ReportDetailsSheet
         report={selected}

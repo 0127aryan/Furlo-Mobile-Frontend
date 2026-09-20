@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { followPet, getCommunities, getFollowingPets, getPackMembers, getPetProfile } from '@/api/auth';
+import { getFeed } from '@/api/posts';
 import { CreatePostForm } from '@/components/feed/CreatePostForm';
 import { PostCard } from '@/components/feed/PostCard';
 import { ReportPostModal } from '@/components/feed/ReportPostModal';
@@ -31,6 +32,7 @@ import {
   subscribePetBadges,
 } from '@/lib/subscribePetBadges';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
+import { appendUniqueById, PAGE_SIZE } from '@/lib/pagination';
 import { getPetSpecies, getPostVerb, getPostVerbPlural } from '@/lib/petVerbMap';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePetSocialStore } from '@/store/usePetSocialStore';
@@ -73,6 +75,11 @@ export function PetProfileView({ petId }: Props) {
   const [listMembers, setListMembers] = useState<PackMember[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [hasWagged, setHasWagged] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const pageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
 
   const isOwner = Boolean(
     (activePet?.id && pet?.id && activePet.id === pet.id) ||
@@ -92,14 +99,20 @@ export function PetProfileView({ petId }: Props) {
     try {
       const data = await getPetProfile(petId, activePet?.id);
       setPet(data.pet);
-      setPosts(data.posts || []);
-      const barks = data.posts?.length || 0;
-      const treats = (data.posts || []).reduce((sum, post) => sum + (post.like_count || 0), 0);
+      const feed = await getFeed(activePet?.id, undefined, {
+        authorPetId: data.pet.id,
+        page: 1,
+        limit: PAGE_SIZE,
+      }).catch(() => ({ posts: data.posts || [], hasMore: false, totalCount: data.posts?.length || 0 }));
+      setPosts(feed.posts);
+      pageRef.current = 1;
+      hasMoreRef.current = feed.hasMore;
+      setHasMorePosts(feed.hasMore);
       const nextStats = {
-        barksCount: data.stats?.barksCount ?? barks,
+        barksCount: data.stats?.barksCount ?? feed.totalCount ?? feed.posts.length,
         packMembersCount: data.stats?.packMembersCount ?? 0,
         followingCount: data.stats?.followingCount ?? 0,
-        treatsCount: data.stats?.treatsCount ?? treats,
+        treatsCount: data.stats?.treatsCount ?? 0,
         isFollowing: data.stats?.isFollowing,
       };
       setStats(nextStats);
@@ -127,6 +140,27 @@ export function PetProfileView({ petId }: Props) {
       if (!silent) setLoading(false);
     }
   }, [petId, activePet?.id, setSocialCounts, markWagged]);
+
+  const loadMorePosts = useCallback(async () => {
+    if (!pet?.id || loadingMoreRef.current || !hasMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    const nextPage = pageRef.current + 1;
+    try {
+      const feed = await getFeed(activePet?.id, undefined, {
+        authorPetId: pet.id,
+        page: nextPage,
+        limit: PAGE_SIZE,
+      });
+      setPosts((prev) => appendUniqueById(prev, feed.posts));
+      pageRef.current = nextPage;
+      hasMoreRef.current = feed.hasMore;
+      setHasMorePosts(feed.hasMore);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [activePet?.id, pet?.id]);
 
   useEffect(() => {
     startFollowRealtime();
@@ -278,7 +312,16 @@ export function PetProfileView({ petId }: Props) {
   const followingCount = liveCounts?.followingCount ?? stats.followingCount;
   return (
     <>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        onScroll={(event) => {
+          if (tab !== 'barks') return;
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 160) {
+            void loadMorePosts();
+          }
+        }}
+        scrollEventThrottle={200}>
         <View style={styles.cover} />
 
         <View style={styles.identity}>
@@ -437,6 +480,15 @@ export function PetProfileView({ petId }: Props) {
                   }}
                 />
               ))}
+              {hasMorePosts ? (
+                <Pressable onPress={() => void loadMorePosts()} style={{ alignItems: 'center', paddingVertical: 16 }}>
+                  {loadingMore ? (
+                    <ActivityIndicator color={palette.amber} />
+                  ) : (
+                    <Text style={styles.emptyBody}>Load more</Text>
+                  )}
+                </Pressable>
+              ) : null}
             </View>
           )}
 

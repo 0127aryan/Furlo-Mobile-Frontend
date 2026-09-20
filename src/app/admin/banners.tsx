@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 
 import { createAdminBanner, deleteAdminBanner, getAdminBanners, toggleAdminBanner } from '@/api/admin';
+import { AdminPager } from '@/components/admin/AdminPager';
 import { adminColors } from '@/constants/adminTheme';
+import { PAGE_SIZE } from '@/lib/pagination';
 import { AppFonts, TapTarget } from '@/constants/theme';
 import type { AdminBannerItem, AdminBannerStyle } from '@/types/admin';
 
@@ -35,12 +37,19 @@ export default function AdminBannersScreen() {
   const [styleType, setStyleType] = useState<AdminBannerStyle>('orange');
   const [isActive, setIsActive] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
-  async function load() {
+  async function load(nextPage = page) {
     setLoading(true);
     try {
-      const res = await getAdminBanners();
+      const res = await getAdminBanners({ page: nextPage, limit: PAGE_SIZE });
       setBanners(res.banners ?? []);
+      setTotalCount(res.totalCount);
+      if ((res.banners ?? []).length === 0 && nextPage > 1) {
+        setPage((p) => Math.max(1, p - 1));
+      }
     } catch {
       Alert.alert('Banners', 'Failed to load banners');
     } finally {
@@ -49,8 +58,8 @@ export default function AdminBannersScreen() {
   }
 
   useEffect(() => {
-    void load();
-  }, []);
+    void load(page);
+  }, [page]);
 
   async function handleCreate() {
     if (!text.trim() || submitting) return;
@@ -64,9 +73,10 @@ export default function AdminBannersScreen() {
         isActive,
       });
       if (res.banner) {
-        setBanners((prev) => [res.banner, ...prev]);
         setText('');
         setLinkUrl('');
+        setPage(1);
+        await load(1);
       }
     } catch (err) {
       Alert.alert('Banners', err instanceof Error ? err.message : 'Failed to create banner');
@@ -89,10 +99,13 @@ export default function AdminBannersScreen() {
   async function handleDelete(id: string) {
     const previous = banners;
     setBanners((prev) => prev.filter((b) => b.id !== id));
+    setTotalCount((count) => Math.max(0, count - 1));
     try {
       await deleteAdminBanner(id);
+      await load(page);
     } catch (err) {
       setBanners(previous);
+      setTotalCount((count) => count + 1);
       Alert.alert('Banners', err instanceof Error ? err.message : 'Failed to delete banner');
     }
   }
@@ -100,7 +113,10 @@ export default function AdminBannersScreen() {
   const preview = styleColors(styleType);
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      ref={scrollRef}
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled">
       <Text style={styles.h1}>Global Announcement Banners</Text>
       <Text style={styles.sub}>
         Configure site-wide top announcement banners for events, community alerts, and platform news.
@@ -193,6 +209,15 @@ export default function AdminBannersScreen() {
           );
         })
       )}
+      <AdminPager
+        page={page}
+        totalCount={totalCount}
+        loading={loading}
+        onPage={(next) => {
+          setPage(next);
+          scrollRef.current?.scrollTo({ y: 0, animated: true });
+        }}
+      />
     </ScrollView>
   );
 }

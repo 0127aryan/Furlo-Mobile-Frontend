@@ -76,6 +76,10 @@ export function CreatePostForm({ communities, lockedCommunityId, onSuccess, onCa
       Alert.alert('Post', 'Finish setting up a Paw Print before posting.');
       return;
     }
+    if (!caption.trim() && mediaFiles.length === 0) {
+      Alert.alert('Post', 'Add a caption or a photo before posting.');
+      return;
+    }
     setSubmitting(true);
     try {
       const post = await createPost({
@@ -98,6 +102,8 @@ export function CreatePostForm({ communities, lockedCommunityId, onSuccess, onCa
       setSubmitting(false);
     }
   }
+
+  const canPost = caption.trim().length > 0 || mediaFiles.length > 0;
 
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
@@ -182,8 +188,11 @@ export function CreatePostForm({ communities, lockedCommunityId, onSuccess, onCa
 
       <Pressable
         onPress={handleSubmit}
-        disabled={submitting}
-        style={StyleSheet.flatten([styles.cta, { minHeight: TapTarget + 8, opacity: submitting ? 0.7 : 1 }])}>
+        disabled={submitting || !canPost}
+        style={StyleSheet.flatten([
+          styles.cta,
+          { minHeight: TapTarget + 8, opacity: submitting || !canPost ? 0.55 : 1 },
+        ])}>
         {submitting ? (
           <ActivityIndicator color="#fff" />
         ) : (

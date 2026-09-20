@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -20,6 +21,7 @@ import { ReportPostModal } from '@/components/feed/ReportPostModal';
 import { QuestionListSkeleton } from '@/components/skeletons';
 import { AskQuestionBottomSheet } from '@/components/qa/AskQuestionBottomSheet';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
+import { appendUniqueById, PAGE_SIZE } from '@/lib/pagination';
 import { petHref } from '@/lib/petHref';
 import { applyPetBadgeToPosts, subscribePetBadges } from '@/lib/subscribePetBadges';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
@@ -51,6 +53,10 @@ export default function QAHubScreen() {
   const [activeFilter, setActiveFilter] = useState<QAFilterTab>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const pageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
   const [askOpen, setAskOpen] = useState(false);
   const [reportingPostId, setReportingPostId] = useState<string | null>(null);
 
@@ -58,19 +64,31 @@ export default function QAHubScreen() {
   petIdRef.current = activePet?.id;
 
   const loadQuestions = useCallback(
-    async (showSpinner = false) => {
-      if (showSpinner) setLoading(true);
+    async (reset = false) => {
+      if (!reset && (loadingMoreRef.current || !hasMoreRef.current)) return;
+      if (reset) setLoading(true);
+      else {
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+      }
+      const nextPage = reset ? 1 : pageRef.current + 1;
       try {
         const data = await getQAQuestions({
           category: activeCategory,
           filter: activeFilter,
           petId: activePet?.id,
+          page: nextPage,
+          limit: PAGE_SIZE,
         });
-        setQuestions(data);
+        setQuestions((prev) => (reset ? data.questions : appendUniqueById(prev, data.questions)));
+        pageRef.current = nextPage;
+        hasMoreRef.current = data.hasMore;
       } catch {
-        if (showSpinner) setQuestions([]);
+        if (reset) setQuestions([]);
       } finally {
-        if (showSpinner) setLoading(false);
+        if (reset) setLoading(false);
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
       }
     },
     [activeCategory, activeFilter, activePet?.id]
@@ -88,7 +106,7 @@ export default function QAHubScreen() {
   }, []);
 
   useEffect(() => {
-    loadQuestions(true);
+    void loadQuestions(true);
   }, [loadQuestions]);
 
   useEffect(() => {
@@ -172,15 +190,23 @@ export default function QAHubScreen() {
 
   async function onRefresh() {
     setRefreshing(true);
-    await Promise.all([loadQuestions(false), loadSidebars()]);
+    await Promise.all([loadQuestions(true), loadSidebars()]);
     setRefreshing(false);
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
+      <FlatList
+        data={loading ? [] : questions}
+        keyExtractor={(q) => q.id}
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.amber} />}>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.amber} />}
+        onEndReached={() => {
+          void loadQuestions(false);
+        }}
+        onEndReachedThreshold={0.4}
+        ListHeaderComponent={
+        <View>
         <View style={styles.header}>
           <ScreenBackButton />
           <View style={styles.headerText}>
@@ -280,31 +306,39 @@ export default function QAHubScreen() {
           })}
         </View>
 
-        {loading ? (
-          <QuestionListSkeleton />
-        ) : questions.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="help-circle-outline" size={48} color={palette.amber} />
-            <Text style={styles.emptyTitle}>No questions found</Text>
-            <Text style={styles.emptyBody}>Be the first pet parent to ask a question!</Text>
-            <Pressable onPress={() => setAskOpen(true)} style={styles.emptyCta}>
-              <Text style={styles.emptyCtaText}>Ask a Question 🐾</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.list}>
-            {questions.map((q) => (
-              <PostCard
-                key={q.id}
-                post={q}
-                onReport={setReportingPostId}
-                onPatch={patchQuestion}
-                onPress={() => router.push(`/qa/${q.id}`)}
-              />
-            ))}
-          </View>
+        </View>
+        }
+        renderItem={({ item: q }) => (
+          <PostCard
+            post={q}
+            onReport={setReportingPostId}
+            onPatch={patchQuestion}
+            onPress={() => router.push(`/qa/${q.id}`)}
+          />
         )}
-      </ScrollView>
+        ListEmptyComponent={
+          loading ? (
+            <QuestionListSkeleton />
+          ) : (
+            <View style={styles.empty}>
+              <Ionicons name="help-circle-outline" size={48} color={palette.amber} />
+              <Text style={styles.emptyTitle}>No questions found</Text>
+              <Text style={styles.emptyBody}>Be the first pet parent to ask a question!</Text>
+              <Pressable onPress={() => setAskOpen(true)} style={styles.emptyCta}>
+                <Text style={styles.emptyCtaText}>Ask a Question 🐾</Text>
+              </Pressable>
+            </View>
+          )
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <ActivityIndicator color={palette.amber} />
+            </View>
+          ) : null
+        }
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+      />
 
       <Pressable onPress={() => setAskOpen(true)} style={styles.fab}>
         <Ionicons name="help-circle" size={22} color="#fff" />

@@ -3,10 +3,11 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  FlatList,
   Modal,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -23,6 +24,7 @@ import { AskQuestionBottomSheet } from '@/components/qa/AskQuestionBottomSheet';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { usePostVerb } from '@/hooks/usePostVerb';
 import { useUnreadNotificationCount } from '@/hooks/useUnreadNotificationCount';
+import { appendUniqueById, PAGE_SIZE } from '@/lib/pagination';
 import { applyPetBadgeToPosts, subscribePetBadges } from '@/lib/subscribePetBadges';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -36,9 +38,14 @@ export default function FeedScreen() {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [reportingPostId, setReportingPostId] = useState<string | null>(null);
+  const pageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
 
   const petName = activePet?.name || user?.name || 'companion';
   const { verb, verbLower, verbPluralLower } = usePostVerb(activePet);
@@ -46,15 +53,27 @@ export default function FeedScreen() {
   petIdRef.current = activePet?.id;
   const { count: unreadCount } = useUnreadNotificationCount();
 
-  const loadFeed = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setLoading(true);
+  const loadFeed = useCallback(async (reset = false) => {
+    if (!reset && (loadingMoreRef.current || !hasMoreRef.current)) return;
+    if (reset) {
+      setLoading(true);
+    } else {
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+    }
+    const nextPage = reset ? 1 : pageRef.current + 1;
     try {
-      const nextPosts = await getFeed(activePet?.id);
-      setPosts(nextPosts);
+      const data = await getFeed(activePet?.id, undefined, { page: nextPage, limit: PAGE_SIZE });
+      setPosts((prev) => (reset ? data.posts : appendUniqueById(prev, data.posts)));
+      pageRef.current = nextPage;
+      hasMoreRef.current = data.hasMore;
+      setHasMore(data.hasMore);
     } catch {
-      if (showSpinner) setPosts([]);
+      if (reset) setPosts([]);
     } finally {
-      if (showSpinner) setLoading(false);
+      if (reset) setLoading(false);
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
   }, [activePet?.id]);
 
@@ -65,7 +84,7 @@ export default function FeedScreen() {
   }, []);
 
   useEffect(() => {
-    loadFeed(true);
+    void loadFeed(true);
   }, [loadFeed]);
 
   useEffect(() => {
@@ -101,95 +120,111 @@ export default function FeedScreen() {
 
   async function onRefresh() {
     setRefreshing(true);
-    await loadFeed(false);
+    await loadFeed(true);
     setRefreshing(false);
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
+      <FlatList
+        data={loading ? [] : posts.filter((post) => post?.id)}
+        keyExtractor={(post) => post.id}
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.amber} />}>
-        <View style={styles.topBar}>
-          <View style={styles.brandRow}>
-            <Ionicons name="paw" size={22} color={palette.amber} />
-            <Text style={styles.brand}>furlo</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <Pressable onPress={() => router.push('/(tabs)/notifications')} style={styles.notifBtn}>
-              <View>
-                <Ionicons name="notifications-outline" size={16} color={palette.evergreenSoft} />
-                {unreadCount > 0 ? (
-                  <View style={styles.notifBadge}>
-                    <Text style={styles.notifBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.amber} />}
+        onEndReached={() => {
+          void loadFeed(false);
+        }}
+        onEndReachedThreshold={0.4}
+        ListHeaderComponent={
+          <View style={styles.headerBlock}>
+            <View style={styles.topBar}>
+              <View style={styles.brandRow}>
+                <Ionicons name="paw" size={22} color={palette.amber} />
+                <Text style={styles.brand}>furlo</Text>
+              </View>
+              <View style={styles.headerActions}>
+                <Pressable onPress={() => router.push('/(tabs)/notifications')} style={styles.notifBtn}>
+                  <View>
+                    <Ionicons name="notifications-outline" size={16} color={palette.evergreenSoft} />
+                    {unreadCount > 0 ? (
+                      <View style={styles.notifBadge}>
+                        <Text style={styles.notifBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                      </View>
+                    ) : null}
                   </View>
-                ) : null}
+                  <Text style={styles.notifBtnLabel}>Alerts</Text>
+                </Pressable>
+                <Pressable onPress={() => setCreateOpen(true)} style={styles.headerCta}>
+                  <Text style={styles.headerCtaLabel}>+ Post {verb}</Text>
+                </Pressable>
               </View>
-              <Text style={styles.notifBtnLabel}>Alerts</Text>
-            </Pressable>
-            <Pressable onPress={() => setCreateOpen(true)} style={styles.headerCta}>
-              <Text style={styles.headerCtaLabel}>+ Post {verb}</Text>
-            </Pressable>
-          </View>
-        </View>
+            </View>
 
-        <Pressable style={styles.composer} onPress={() => setCreateOpen(true)}>
-          <View style={styles.composerRow}>
-            {activePet?.profile_image_url ? (
-              <Image source={{ uri: activePet.profile_image_url }} style={styles.composerAvatar} />
-            ) : (
-              <View style={styles.composerAvatarEmpty}>
-                <Ionicons name="paw" size={16} color={palette.amber} />
+            <Pressable style={styles.composer} onPress={() => setCreateOpen(true)}>
+              <View style={styles.composerRow}>
+                {activePet?.profile_image_url ? (
+                  <Image source={{ uri: activePet.profile_image_url }} style={styles.composerAvatar} />
+                ) : (
+                  <View style={styles.composerAvatarEmpty}>
+                    <Ionicons name="paw" size={16} color={palette.amber} />
+                  </View>
+                )}
+                <View style={styles.fakeInput}>
+                  <Text style={styles.placeholder}>What's {petName} up to today?</Text>
+                </View>
               </View>
-            )}
-            <View style={styles.fakeInput}>
-              <Text style={styles.placeholder}>What's {petName} up to today?</Text>
-            </View>
-          </View>
-          <View style={styles.composerActions}>
-            <View style={styles.quick}>
-              <Ionicons name="image-outline" size={18} color={palette.amber} />
-              <Text style={styles.quickLabel}>Photo</Text>
-            </View>
-            <Pressable style={styles.quick} onPress={() => setAskOpen(true)}>
-              <Ionicons name="help-circle-outline" size={18} color={palette.forest} />
-              <Text style={styles.quickLabel}>Question</Text>
-            </Pressable>
-            <View style={styles.quick}>
-              <Ionicons name="bulb-outline" size={18} color={palette.brown} />
-              <Text style={styles.quickLabel}>Tip</Text>
-            </View>
-            <View style={styles.postBark}>
-              <Text style={styles.postBarkLabel}>Post {verb}</Text>
-            </View>
-          </View>
-        </Pressable>
-
-        {loading ? (
-          <FeedListSkeleton />
-        ) : posts.length === 0 ? (
-          <View style={styles.empty}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="paw" size={32} color={palette.amber} />
-            </View>
-            <Text style={styles.emptyTitle}>The Yard is quiet right now 🐾</Text>
-            <Text style={styles.emptyBody}>
-              Be the first pet in your pack to post a {verbLower}, ask a question, or share a photo!
-            </Text>
-            <Pressable
-              onPress={() => setCreateOpen(true)}
-              style={StyleSheet.flatten([styles.emptyCta, { minHeight: TapTarget }])}>
-              <Text style={styles.emptyCtaLabel}>+ Post First {verb}</Text>
+              <View style={styles.composerActions}>
+                <View style={styles.quick}>
+                  <Ionicons name="image-outline" size={18} color={palette.amber} />
+                  <Text style={styles.quickLabel}>Photo</Text>
+                </View>
+                <Pressable style={styles.quick} onPress={() => setAskOpen(true)}>
+                  <Ionicons name="help-circle-outline" size={18} color={palette.forest} />
+                  <Text style={styles.quickLabel}>Question</Text>
+                </Pressable>
+                <View style={styles.quick}>
+                  <Ionicons name="bulb-outline" size={18} color={palette.brown} />
+                  <Text style={styles.quickLabel}>Tip</Text>
+                </View>
+                <View style={styles.postBark}>
+                  <Text style={styles.postBarkLabel}>Post {verb}</Text>
+                </View>
+              </View>
             </Pressable>
           </View>
-        ) : (
-          <View style={styles.list}>
-            {posts.filter((post) => post?.id).map((post) => (
-              <PostCard key={post.id} post={post} onReport={setReportingPostId} onPatch={patchPost} />
-            ))}
-          </View>
+        }
+        renderItem={({ item: post }) => (
+          <PostCard post={post} onReport={setReportingPostId} onPatch={patchPost} />
         )}
-      </ScrollView>
+        ListEmptyComponent={
+          loading ? (
+            <FeedListSkeleton />
+          ) : (
+            <View style={styles.empty}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="paw" size={32} color={palette.amber} />
+              </View>
+              <Text style={styles.emptyTitle}>The Yard is quiet right now 🐾</Text>
+              <Text style={styles.emptyBody}>
+                Be the first pet in your pack to post a {verbLower}, ask a question, or share a photo!
+              </Text>
+              <Pressable
+                onPress={() => setCreateOpen(true)}
+                style={StyleSheet.flatten([styles.emptyCta, { minHeight: TapTarget }])}>
+                <Text style={styles.emptyCtaLabel}>+ Post First {verb}</Text>
+              </Pressable>
+            </View>
+          )
+        }
+        ListFooterComponent={
+          loadingMore || hasMore ? (
+            <View style={styles.footer}>
+              {loadingMore ? <ActivityIndicator color={palette.amber} /> : null}
+            </View>
+          ) : null
+        }
+        ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+      />
 
       <Modal visible={createOpen} animationType="slide" onRequestClose={() => setCreateOpen(false)}>
         <SafeAreaView style={styles.safe}>
@@ -224,7 +259,9 @@ export default function FeedScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FDF8F2' },
-  scroll: { padding: 16, paddingBottom: 32, gap: 16 },
+  scroll: { padding: 16, paddingBottom: 32 },
+  headerBlock: { gap: 16, marginBottom: 16 },
+  footer: { paddingVertical: 16, alignItems: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brand: { fontFamily: AppFonts.heading, fontSize: 20, color: '#163328' },

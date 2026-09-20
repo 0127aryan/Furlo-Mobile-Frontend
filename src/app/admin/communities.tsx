@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,11 +20,13 @@ import {
   suspendAdminCommunity,
 } from '@/api/admin';
 import { AdminCommunityDetailSheet } from '@/components/admin/AdminCommunityDetailSheet';
+import { AdminPager } from '@/components/admin/AdminPager';
 import { AdminSegmentedTabs } from '@/components/admin/AdminSegmentedTabs';
 import { AdminSheet } from '@/components/admin/AdminSheet';
 import { adminColors } from '@/constants/adminTheme';
 import { AppFonts, TapTarget } from '@/constants/theme';
 import { useAdminStore } from '@/store/useAdminStore';
+import { PAGE_SIZE } from '@/lib/pagination';
 import { applyPackStatusToItem, applyPackStatusToList, subscribePackStatus } from '@/lib/subscribePackStatus';
 import type { AdminCommunityItem } from '@/types/admin';
 
@@ -39,22 +41,30 @@ export default function AdminCommunitiesScreen() {
   const [rejecting, setRejecting] = useState<AdminCommunityItem | null>(null);
   const [reason, setReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const pendingApprovals = useAdminStore((s) => s.pendingApprovals);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (nextPage = page) => {
     setLoading(true);
     try {
-      const res = await getAdminCommunitiesPending();
+      const res = await getAdminCommunitiesPending({ status: filter, page: nextPage, limit: PAGE_SIZE });
       setCommunities(res.communities ?? []);
+      setTotalCount(res.totalCount);
+      if ((res.communities ?? []).length === 0 && nextPage > 1) {
+        setPage((p) => Math.max(1, p - 1));
+      }
     } catch {
       Alert.alert('Communities', 'Failed to load communities queue');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter, page]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(page);
+  }, [load, page]);
 
   useEffect(() => {
     return subscribePackStatus((payload) => {
@@ -158,12 +168,11 @@ export default function AdminCommunitiesScreen() {
     }
   }
 
-  const filtered = communities.filter((c) => (filter === 'all' ? true : c.status === filter));
-  const pendingCount = communities.filter((c) => c.status === 'pending').length;
+  const filtered = communities;
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
         <Text style={styles.h1}>Community Approvals Queue</Text>
         <Text style={styles.sub}>
           Review new pet packs created by community leads, then approve or reject.
@@ -171,12 +180,15 @@ export default function AdminCommunitiesScreen() {
 
         <AdminSegmentedTabs
           value={filter}
-          onChange={setFilter}
+          onChange={(id) => {
+            setFilter(id);
+            setPage(1);
+          }}
           tabs={[
-            { id: 'pending', label: 'Pending', count: pendingCount },
-            { id: 'approved', label: 'Approved', count: communities.filter((c) => c.status === 'approved').length },
-            { id: 'rejected', label: 'Rejected', count: communities.filter((c) => c.status === 'rejected').length },
-            { id: 'all', label: 'All Packs', count: communities.length },
+            { id: 'pending', label: 'Pending', count: pendingApprovals },
+            { id: 'approved', label: 'Approved' },
+            { id: 'rejected', label: 'Rejected' },
+            { id: 'all', label: 'All Packs' },
           ]}
         />
 
@@ -255,6 +267,15 @@ export default function AdminCommunitiesScreen() {
             );
           })
         )}
+        <AdminPager
+          page={page}
+          totalCount={totalCount}
+          loading={loading}
+          onPage={(next) => {
+            setPage(next);
+            scrollRef.current?.scrollTo({ y: 0, animated: true });
+          }}
+        />
       </ScrollView>
 
       <AdminCommunityDetailSheet

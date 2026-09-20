@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 
 import { getAdminBroadcastHistory, revokeAdminBroadcast, sendAdminBroadcast } from '@/api/admin';
+import { AdminPager } from '@/components/admin/AdminPager';
 import { AdminSheet } from '@/components/admin/AdminSheet';
 import { adminColors } from '@/constants/adminTheme';
+import { PAGE_SIZE } from '@/lib/pagination';
 import { AppFonts, TapTarget } from '@/constants/theme';
 import type { AdminBroadcastAudience, AdminBroadcastHistoryItem } from '@/types/admin';
 
@@ -35,12 +37,19 @@ export default function AdminBroadcastScreen() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
-  async function loadHistory() {
+  async function loadHistory(nextPage = page) {
     setLoadingHistory(true);
     try {
-      const res = await getAdminBroadcastHistory();
+      const res = await getAdminBroadcastHistory({ page: nextPage, limit: PAGE_SIZE });
       setHistory(res.history ?? []);
+      setTotalCount(res.totalCount);
+      if ((res.history ?? []).length === 0 && nextPage > 1) {
+        setPage((p) => Math.max(1, p - 1));
+      }
     } catch {
       Alert.alert('Broadcast', 'Failed to load broadcast history');
     } finally {
@@ -49,8 +58,8 @@ export default function AdminBroadcastScreen() {
   }
 
   useEffect(() => {
-    void loadHistory();
-  }, []);
+    void loadHistory(page);
+  }, [page]);
 
   async function handleSend() {
     if (sending) return;
@@ -68,7 +77,8 @@ export default function AdminBroadcastScreen() {
         setTitle('');
         setBody('');
         setLinkUrl('');
-        void loadHistory();
+        setPage(1);
+        void loadHistory(1);
       }
     } catch (err) {
       Alert.alert('Broadcast', err instanceof Error ? err.message : 'Failed to send broadcast');
@@ -80,10 +90,13 @@ export default function AdminBroadcastScreen() {
   async function handleRevoke(item: AdminBroadcastHistoryItem) {
     const previous = history;
     setHistory((prev) => prev.filter((row) => row.id !== item.id));
+    setTotalCount((count) => Math.max(0, count - 1));
     try {
       await revokeAdminBroadcast(item.id);
+      await loadHistory(page);
     } catch (err) {
       setHistory(previous);
+      setTotalCount((count) => count + 1);
       Alert.alert('Broadcast', err instanceof Error ? err.message : 'Failed to revoke broadcast');
     }
   }
@@ -91,7 +104,10 @@ export default function AdminBroadcastScreen() {
   const audienceLabel = AUDIENCES.find((a) => a.id === targetAudience)?.label || 'All Users';
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      ref={scrollRef}
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled">
       <Text style={styles.h1}>Platform Notification Broadcast</Text>
       <Text style={styles.sub}>
         Send in-app notifications and mobile push alerts to a selected audience.
@@ -183,6 +199,15 @@ export default function AdminBroadcastScreen() {
           This will fan out “{title}” to {audienceLabel.toLowerCase()} and trigger push delivery.
         </Text>
       </AdminSheet>
+      <AdminPager
+        page={page}
+        totalCount={totalCount}
+        loading={loadingHistory}
+        onPage={(next) => {
+          setPage(next);
+          scrollRef.current?.scrollTo({ y: 0, animated: true });
+        }}
+      />
     </ScrollView>
   );
 }

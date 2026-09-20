@@ -1,5 +1,6 @@
 import { apiFetch } from '@/api/client';
-import type { Community, CommunityHub } from '@/types/api';
+import { PAGE_SIZE, paginationFrom, type PageParams, type PaginationMeta } from '@/lib/pagination';
+import type { Community, CommunityHub, CommunityMember } from '@/types/api';
 
 const ALL_PACKS = 'All Packs';
 
@@ -33,16 +34,33 @@ export function getCommunityCategories() {
   return apiFetch<unknown>('/communities/categories').then(normalizeCategories);
 }
 
-export async function listCommunities(params?: { q?: string; category?: string; petId?: string }) {
+export async function listCommunities(params?: { q?: string; category?: string; petId?: string } & PageParams) {
   const search = new URLSearchParams();
   if (params?.q) search.set('q', params.q);
   if (params?.category && params.category.toLowerCase() !== 'all packs' && params.category.toLowerCase() !== 'all') {
     search.set('category', params.category);
   }
   if (params?.petId) search.set('petId', params.petId);
-  const query = search.toString();
-  const data = await apiFetch<unknown>(`/communities${query ? `?${query}` : ''}`);
-  return normalizeCommunities(data);
+  search.set('page', String(params?.page ?? 1));
+  search.set('limit', String(params?.limit ?? PAGE_SIZE));
+  const data = await apiFetch<PaginationMeta & { communities?: Community[] }>(`/communities?${search.toString()}`);
+  return {
+    communities: normalizeCommunities(data),
+    ...paginationFrom(data),
+  };
+}
+
+export async function listCommunityMembers(slug: string, params?: PageParams) {
+  const search = new URLSearchParams();
+  search.set('page', String(params?.page ?? 1));
+  search.set('limit', String(params?.limit ?? PAGE_SIZE));
+  const data = await apiFetch<PaginationMeta & { members?: CommunityMember[] }>(
+    `/communities/${encodeURIComponent(slug)}/members?${search.toString()}`,
+  );
+  return {
+    members: data.members ?? [],
+    ...paginationFrom(data),
+  };
 }
 
 export async function listMyCommunities(petId?: string) {
