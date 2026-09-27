@@ -1,3 +1,4 @@
+import '@/lib/sentry';
 import '@/lib/notifeeBackgroundHandler';
 
 import { useFonts } from 'expo-font';
@@ -12,6 +13,7 @@ import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { PushNotificationBootstrap } from '@/components/PushNotificationBootstrap';
 import { palette } from '@/constants/theme';
+import { PostHogRootProvider } from '@/components/PostHogRootProvider';
 import { useAuthStore } from '@/store/useAuthStore';
 
 SplashScreen.preventAutoHideAsync();
@@ -77,6 +79,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={furloTheme}>
+      <PostHogRootProvider>
       <PushNotificationBootstrap enabled={sessionReady && minTimeDone && Boolean(user?.id)} />
       <BannerSafeArea>
         <Stack screenOptions={{ headerShown: false }}>
@@ -95,6 +98,7 @@ export default function RootLayout() {
           <Stack.Screen name="notifications/settings" />
         </Stack>
       </BannerSafeArea>
+      </PostHogRootProvider>
     </ThemeProvider>
   );
 }
