@@ -63,6 +63,13 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#E8843A"
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "furlo-pets",
+          "project": "furlo-mobile"
+        }
       ]
     ],
     "newArchEnabled": true,
@@ -71,7 +78,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "http://10.0.2.2:4000",
+      "apiUrl": "https://apidev.furlopets.in",
       "router": {},
       "eas": {
         "projectId": "14c9bb0f-1840-4409-b601-21211afefac4"
