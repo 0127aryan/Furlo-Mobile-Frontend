@@ -3,9 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -17,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 
-import { checkVerification, getMe, login, resendConfirmation, signup } from '@/api/auth';
+import { login, resendConfirmation, signup, startGoogleSignIn, verifyEmailOtp } from '@/api/auth';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
@@ -42,7 +40,9 @@ export default function JoinScreen() {
   const [pendingEmail, setPendingEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
-  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [verifyOtpLoading, setVerifyOtpLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const { setOnboardingData } = useAuthStore();
   const isSignup = mode === 'signup';
@@ -52,47 +52,6 @@ export default function JoinScreen() {
     if (params.mode === 'signup') setMode('signup');
     else if (params.mode === 'signin') setMode('signin');
   }, [params.mode]);
-
-  useEffect(() => {
-    if (!verificationPending || !pendingEmail) return;
-
-    let isMounted = true;
-    const interval = setInterval(async () => {
-      try {
-        const res = await checkVerification(pendingEmail);
-        if (isMounted && res.verified) {
-          clearInterval(interval);
-          await finishVerifiedFlow();
-        }
-      } catch {
-        // Silent poll — inbox may not be confirmed yet.
-      }
-    }, 4000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- poll only while pending
-  }, [verificationPending, pendingEmail]);
-
-  async function finishVerifiedFlow() {
-    try {
-      await getMe({ skipUnauthorizedClear: true });
-    } catch {
-      const saved = useAuthStore.getState().onboardingData;
-      const savedEmail = saved?.email || pendingEmail;
-      const savedPassword = saved?.password;
-      if (savedEmail && savedPassword) {
-        try {
-          await login(savedEmail, savedPassword);
-        } catch {
-          // Match web: still continue to role select.
-        }
-      }
-    }
-    router.replace('/join/select');
-  }
 
   async function handleSubmit() {
     setLoading(true);
@@ -109,6 +68,7 @@ export default function JoinScreen() {
           router.replace('/join/select');
         }
       } else {
+        setOnboardingData({ email, password });
         const res = await login(email, password);
         if (res.activePet) {
           router.replace('/feed');
@@ -123,26 +83,52 @@ export default function JoinScreen() {
     }
   }
 
-  async function handleManualCheckVerification() {
-    if (!pendingEmail || checkingStatus) return;
-    setCheckingStatus(true);
+  async function handleVerifyOtp() {
+    if (!pendingEmail || verifyOtpLoading) return;
+    const token = otpCode.replace(/\s/g, '');
+    if (token.length < 6) {
+      setError('Enter the 6-digit code from your email.');
+      return;
+    }
+
+    setVerifyOtpLoading(true);
     setError(null);
 
     try {
-      const res = await checkVerification(pendingEmail);
-      if (res.verified) {
-        await finishVerifiedFlow();
+      const savedPassword = useAuthStore.getState().onboardingData?.password;
+      const res = await verifyEmailOtp(pendingEmail, token, savedPassword);
+      setOnboardingData({
+        email: pendingEmail,
+        ...(savedPassword ? { password: savedPassword } : {}),
+      });
+      setOtpCode('');
+      if (res.activePet) {
+        router.replace('/feed');
       } else {
-        setError('Email not confirmed yet. Please check your inbox and click the verification link.');
+        router.replace('/join/select');
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not verify status. Please try clicking the link in your email.'
-      );
+      setError(err instanceof Error ? err.message : 'Invalid or expired code.');
     } finally {
-      setCheckingStatus(false);
+      setVerifyOtpLoading(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    if (googleLoading) return;
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      const res = await startGoogleSignIn();
+      if (res.activePet) {
+        router.replace('/feed');
+      } else {
+        router.replace('/join/select');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google sign-in failed.');
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -184,10 +170,10 @@ export default function JoinScreen() {
                 </View>
                 <Text style={styles.title}>Verify your email address 📩</Text>
                 <Text style={styles.body}>
-                  We've sent a verification link to{' '}
+                  We sent a 6-digit code to{' '}
                   <Text style={styles.emailHighlight}>{pendingEmail}</Text>.
                 </Text>
-                <Text style={styles.hint}>Click the link in your email to unlock your profile creation.</Text>
+                <Text style={styles.hint}>Enter the code below to continue to profile setup.</Text>
 
                 {error ? (
                   <View style={styles.errorBanner}>
@@ -199,50 +185,48 @@ export default function JoinScreen() {
                 {resendSuccess ? (
                   <View style={styles.successBanner}>
                     <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-                    <Text style={styles.successText}>Confirmation link resent! Check your inbox.</Text>
+                    <Text style={styles.successText}>Verification code resent! Check your inbox.</Text>
                   </View>
                 ) : null}
 
+                <Text style={styles.label}>Verification code</Text>
+                <TextInput
+                  value={otpCode}
+                  onChangeText={(t) => setOtpCode(t.replace(/[^\d\s]/g, ''))}
+                  placeholder="000000"
+                  placeholderTextColor={palette.border}
+                  keyboardType="number-pad"
+                  autoComplete="one-time-code"
+                  maxLength={8}
+                  style={[styles.input, styles.otpInput]}
+                />
+
                 <Pressable
                   style={StyleSheet.flatten([styles.primaryBtn, { minHeight: TapTarget }])}
-                  onPress={() => WebBrowser.openBrowserAsync(webmailInfo.webmailUrl)}>
-                  <Text style={styles.primaryLabel}>Open {webmailInfo.providerName}</Text>
-                  <Ionicons name="open-outline" size={18} color="#fff" />
-                </Pressable>
-
-                <Pressable onPress={() => Linking.openURL(webmailInfo.mailtoUrl)}>
-                  <Text style={styles.mailto}>Open in desktop email client ↗</Text>
-                </Pressable>
-
-                <View style={styles.dividerLine} />
-
-                <Pressable
-                  style={StyleSheet.flatten([styles.outlineBtn, { minHeight: TapTarget }])}
-                  onPress={handleManualCheckVerification}
-                  disabled={checkingStatus}>
-                  {checkingStatus ? (
-                    <>
-                      <ActivityIndicator size="small" color={palette.ink} />
-                      <Text style={styles.outlineLabel}>Checking status…</Text>
-                    </>
+                  onPress={handleVerifyOtp}
+                  disabled={verifyOtpLoading}>
+                  {verifyOtpLoading ? (
+                    <ActivityIndicator color="#fff" />
                   ) : (
-                    <>
-                      <Text style={styles.outlineLabel}>I've confirmed my email</Text>
-                      <Ionicons name="arrow-forward" size={18} color={palette.brown} />
-                    </>
+                    <Text style={styles.primaryLabel}>Verify email →</Text>
                   )}
+                </Pressable>
+
+                <Pressable onPress={() => WebBrowser.openBrowserAsync(webmailInfo.webmailUrl)}>
+                  <Text style={styles.mailto}>Open {webmailInfo.providerName} ↗</Text>
                 </Pressable>
 
                 <View style={styles.resendRow}>
                   <Text style={styles.bodySmall}>Didn't get the email?</Text>
                   <Pressable onPress={handleResendEmail} disabled={resendLoading}>
-                    <Text style={styles.link}>{resendLoading ? 'Resending…' : 'Resend link'}</Text>
+                    <Text style={styles.link}>{resendLoading ? 'Resending…' : 'Resend code'}</Text>
                   </Pressable>
                 </View>
 
                 <Pressable
                   onPress={() => {
                     setVerificationPending(false);
+                    setOtpCode('');
                     setError(null);
                   }}>
                   <Text style={styles.backLink}>← Use a different email address</Text>
@@ -290,11 +274,16 @@ export default function JoinScreen() {
 
                 <Pressable
                   style={StyleSheet.flatten([styles.googleBtn, { minHeight: TapTarget }])}
-                  onPress={() =>
-                    Alert.alert('Coming soon', 'Google sign-in will be available after email auth is working.')
-                  }>
-                  <GoogleIcon />
-                  <Text style={styles.googleLabel}>Continue with Google</Text>
+                  onPress={handleGoogleSignIn}
+                  disabled={googleLoading}>
+                  {googleLoading ? (
+                    <ActivityIndicator color={palette.ink} />
+                  ) : (
+                    <>
+                      <GoogleIcon />
+                      <Text style={styles.googleLabel}>Continue with Google</Text>
+                    </>
+                  )}
                 </Pressable>
 
                 <View style={styles.orRow}>
@@ -505,6 +494,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
+  },
+  otpInput: {
+    fontSize: 22,
+    letterSpacing: 6,
+    textAlign: 'center',
   },
   passwordWrap: { width: '100%' },
   passwordInput: { paddingRight: 48 },

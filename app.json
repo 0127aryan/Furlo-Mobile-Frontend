@@ -65,6 +65,7 @@
         }
       ]
     ],
+    "newArchEnabled": true,
     "experiments": {
       "typedRoutes": false,
       "reactCompiler": true

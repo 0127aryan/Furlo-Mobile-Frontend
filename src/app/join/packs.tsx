@@ -11,7 +11,12 @@ import {
   View,
 } from 'react-native';
 
-import { completeOnboarding, getCommunities, getMe } from '@/api/auth';
+import {
+  completeOnboarding,
+  ensureSessionForOnboarding,
+  getCommunities,
+  getMe,
+} from '@/api/auth';
 import { FurloLoadingScreen } from '@/components/FurloLoadingScreen';
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
 import { PackListSkeleton } from '@/components/skeletons';
@@ -64,20 +69,46 @@ export default function JoinPacksScreen() {
     setCompleting(true);
     setError(null);
     try {
-      await completeOnboarding(buildCompleteOnboardingBody(onboardingData, packs));
+      const meData = await ensureSessionForOnboarding();
+      if (meData.activePet) {
+        setUser(meData.user);
+        setActivePet(meData.activePet);
+        useAuthStore.getState().setRole(onboardingData?.role || roleFromPet(meData.activePet));
+        setOnboardingData(null);
+        setShowSuccess(true);
+        await new Promise((r) => setTimeout(r, 1600));
+        router.replace('/feed');
+        return;
+      }
+
+      await completeOnboarding(
+        buildCompleteOnboardingBody(useAuthStore.getState().onboardingData ?? onboardingData, packs),
+      );
       try {
         const me = await getMe();
         setUser(me.user);
         setActivePet(me.activePet);
         useAuthStore.getState().setRole(onboardingData?.role || roleFromPet(me.activePet));
       } catch {
-        // Session is still valid; feed gate uses store after getMe when possible.
+        // complete-onboarding succeeded; store may already be updated
       }
       setOnboardingData(null);
       setShowSuccess(true);
       await new Promise((r) => setTimeout(r, 1600));
       router.replace('/feed');
     } catch (err) {
+      try {
+        const fallback = await getMe({ skipUnauthorizedClear: true });
+        if (fallback?.activePet) {
+          setUser(fallback.user);
+          setActivePet(fallback.activePet);
+          setOnboardingData(null);
+          router.replace('/feed');
+          return;
+        }
+      } catch {
+        // show error below
+      }
       setError(err instanceof Error ? err.message : 'Failed to save profile. Please try again.');
       setCompleting(false);
     }
@@ -181,10 +212,9 @@ export default function JoinPacksScreen() {
         </View>
 
         <Text style={styles.legal}>
-          By completing your setup, you agree to our Pack Guidelines and Privacy Policy.
           {isLover
-            ? ' Your profile will be visible to members of the packs you join.'
-            : ' Your Paw Print will be visible to members of the packs you join.'}
+            ? 'Your profile will be visible to members of the packs you join.'
+            : 'Your Paw Print will be visible to members of the packs you join.'}
         </Text>
       </ScrollView>
 

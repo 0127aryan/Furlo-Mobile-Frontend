@@ -19,6 +19,7 @@ export interface Pet {
   pet_type?: string;
   species?: string;
   gender?: string;
+  date_of_birth?: string | null;
   bio?: string;
   created_at?: string;
   is_verified?: boolean;
@@ -52,6 +53,9 @@ export interface OnboardingData {
   role: 'parent' | 'lover' | null;
   email?: string;
   password?: string;
+  parentName?: string;
+  termsAccepted?: boolean;
+  marketingOptIn?: boolean;
   petName?: string;
   petUsername?: string;
   petType?: string;
@@ -61,6 +65,7 @@ export interface OnboardingData {
   customBreed?: string;
   city?: string;
   gender?: 'male' | 'female' | 'unknown';
+  dateOfBirth?: string;
   bio?: string;
   personalityTags?: string[];
   customPersonalityTags?: string[];
@@ -177,6 +182,9 @@ export type QuestionDetail = Post;
 
 export interface CompleteOnboardingBody {
   role?: 'parent' | 'lover';
+  parentName: string;
+  termsAccepted: true;
+  marketingOptIn?: boolean;
   petName: string;
   petUsername?: string;
   petType?: string;
@@ -185,6 +193,7 @@ export interface CompleteOnboardingBody {
   customBreed?: string;
   city: string;
   gender?: 'male' | 'female' | 'unknown';
+  dateOfBirth?: string;
   bio?: string;
   personalityTags?: string[];
   customPersonalityTags?: string[];

@@ -33,6 +33,7 @@ import {
 } from '@/lib/subscribePetBadges';
 import { applyFeedCounts, applyPostRowCounts, subscribeYardFeed } from '@/lib/subscribeYardFeed';
 import { appendUniqueById, PAGE_SIZE } from '@/lib/pagination';
+import { formatPetDateOfBirth } from '@/lib/formatPetDateOfBirth';
 import { getPetSpecies, getPostVerb, getPostVerbPlural } from '@/lib/petVerbMap';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePetSocialStore } from '@/store/usePetSocialStore';
@@ -449,6 +450,10 @@ export function PetProfileView({ petId }: Props) {
                 <InfoCell label="Breed" value={pet.breed || '—'} />
                 <InfoCell label="City" value={pet.city || '—'} />
                 <InfoCell label="Gender" value={pet.gender || 'Unknown'} />
+                <InfoCell
+                  label="Date of Birth"
+                  value={pet.date_of_birth ? formatPetDateOfBirth(pet.date_of_birth) : '—'}
+                />
                 {pet.users?.name ? <InfoCell label="Pet Parent" value={pet.users.name} /> : null}
               </View>
             </View>
