@@ -36,7 +36,13 @@ export default function PrivacyScreen() {
         and send essential service notifications. We do not sell personal data to third parties.
       </Text>
 
-      <Text style={s.sectionTitle}>4. Your DPDPA Rights</Text>
+      <Text style={s.sectionTitle}>4. Analytics and ads</Text>
+      <Text style={s.body}>
+        If you allow it, Firebase Analytics measures how the app is used and Google AdMob shows ads.
+        You can decline and keep using Furlo. We do not sell your personal data.
+      </Text>
+
+      <Text style={s.sectionTitle}>5. Your DPDPA Rights</Text>
       <Text style={s.body}>
         You may request access, correction, or deletion of your personal data. Contact our Grievance Officer at{' '}
         <Text style={s.bodyStrong}>support@furlopets.in</Text> for any privacy-related requests.

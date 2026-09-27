@@ -1,48 +1,22 @@
-import { useEffect, useState } from 'react'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
-import { usePostHog } from 'posthog-react-native'
 
 import { palette } from '@/constants/theme'
-import {
-  readAnalyticsConsent,
-  writeAnalyticsConsent,
-  type AnalyticsConsent,
-} from '@/lib/analyticsConsent'
+import { writeAnalyticsConsent } from '@/lib/analyticsConsent'
+import { useAnalyticsConsent } from '@/lib/useAnalyticsConsent'
 
 export function AnalyticsConsentPrompt() {
-  const posthog = usePostHog()
-  const [consent, setConsent] = useState<AnalyticsConsent | 'loading'>('loading')
+  const consent = useAnalyticsConsent()
 
-  useEffect(() => {
-    let cancelled = false
-    readAnalyticsConsent().then((stored) => {
-      if (cancelled) return
-      setConsent(stored)
-      if (stored === 'granted') {
-        posthog?.optIn()
-      } else if (stored === 'denied') {
-        posthog?.optOut()
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [posthog])
-
-  if (consent !== null || !posthog) {
+  if (consent !== null) {
     return null
   }
 
-  const accept = async () => {
-    await writeAnalyticsConsent('granted')
-    posthog.optIn()
-    setConsent('granted')
+  const accept = () => {
+    void writeAnalyticsConsent('granted')
   }
 
-  const decline = async () => {
-    await writeAnalyticsConsent('denied')
-    posthog.optOut()
-    setConsent('denied')
+  const decline = () => {
+    void writeAnalyticsConsent('denied')
   }
 
   return (
@@ -51,15 +25,16 @@ export function AnalyticsConsentPrompt() {
         <View style={styles.card}>
           <Text style={styles.title}>Help us improve Furlo</Text>
           <Text style={styles.body}>
-            Optional anonymised analytics help us understand which features work. You can change this
-            later in settings. Crash reports use Sentry without selling your data.
+            Optional analytics from Firebase and PostHog help us understand which features work. Ads
+            from Google help support the app. You can decline and keep using Furlo. Crash reports use
+            Sentry.
           </Text>
           <View style={styles.actions}>
             <Pressable style={styles.secondaryBtn} onPress={decline}>
               <Text style={styles.secondaryText}>Not now</Text>
             </Pressable>
             <Pressable style={styles.primaryBtn} onPress={accept}>
-              <Text style={styles.primaryText}>Allow analytics</Text>
+              <Text style={styles.primaryText}>Allow</Text>
             </Pressable>
           </View>
         </View>
