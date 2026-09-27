@@ -1,6 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
+import { BottomTabBar, type BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { useEffect } from 'react';
+import { View } from 'react-native';
+
+import { AdMobBanner } from '@/components/ads/AdMobBanner';
 
 import { AppFonts, TapTarget } from '@/constants/theme';
 import { usePostVerb } from '@/hooks/usePostVerb';
@@ -10,6 +14,15 @@ import { startFollowRealtime } from '@/lib/subscribeFollowEvents';
 import { subscribePetBadges } from '@/lib/subscribePetBadges';
 import { subscribePackStatus } from '@/lib/subscribePackStatus';
 import { useAuthStore } from '@/store/useAuthStore';
+
+function TabBarWithAd(props: BottomTabBarProps) {
+  return (
+    <View>
+      <AdMobBanner />
+      <BottomTabBar {...props} />
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const theme = useTheme();
@@ -37,6 +50,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       initialRouteName="feed"
+      tabBar={(props) => <TabBarWithAd {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
