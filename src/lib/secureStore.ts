@@ -3,6 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 const ACCESS_TOKEN_KEY = 'furlo_access_token';
 const REFRESH_TOKEN_KEY = 'furlo_refresh_token';
 const AUTH_CACHE_KEY = 'furlo_auth_cache';
+const OAUTH_PENDING_STATE_KEY = 'furlo_oauth_pending_state';
+const OAUTH_PENDING_TTL_MS = 15 * 60 * 1000;
 
 /** Android SecureStore rejects values over ~2048 bytes; JWTs can exceed that. */
 const CHUNK_SIZE = 1800;
@@ -69,4 +71,26 @@ export async function setAuthCache(value: string): Promise<void> {
 
 export async function getAuthCache(): Promise<string | null> {
   return getSecureItem(AUTH_CACHE_KEY);
+}
+
+export async function setPendingOAuthState(state: string): Promise<void> {
+  await SecureStore.setItemAsync(
+    OAUTH_PENDING_STATE_KEY,
+    JSON.stringify({ state, at: Date.now() }),
+  );
+}
+
+export async function consumePendingOAuthState(): Promise<string | null> {
+  const raw = await SecureStore.getItemAsync(OAUTH_PENDING_STATE_KEY);
+  await SecureStore.deleteItemAsync(OAUTH_PENDING_STATE_KEY).catch(() => undefined);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { state?: string; at?: number };
+    if (!parsed.state || !parsed.at || Date.now() - parsed.at > OAUTH_PENDING_TTL_MS) {
+      return null;
+    }
+    return parsed.state;
+  } catch {
+    return null;
+  }
 }

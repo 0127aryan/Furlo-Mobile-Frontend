@@ -5,8 +5,12 @@ export function buildCompleteOnboardingBody(
   packs: string[]
 ): CompleteOnboardingBody {
   const role = data?.role || 'parent';
+  const parentName = (data?.parentName || '').trim();
   return {
     role,
+    parentName,
+    termsAccepted: true as const,
+    marketingOptIn: data?.marketingOptIn ?? false,
     petName: data?.petName || (role === 'lover' ? 'Pet Lover' : 'My Companion'),
     petUsername: data?.petUsername,
     petType: role === 'lover' ? 'lover' : data?.petType || 'dogs',
@@ -15,6 +19,7 @@ export function buildCompleteOnboardingBody(
     customBreed: data?.customBreed,
     city: data?.city || 'Bangalore',
     gender: data?.gender || 'unknown',
+    dateOfBirth: data?.dateOfBirth,
     bio: data?.bio || '',
     personalityTags: data?.personalityTags || [],
     customPersonalityTags: data?.customPersonalityTags || [],

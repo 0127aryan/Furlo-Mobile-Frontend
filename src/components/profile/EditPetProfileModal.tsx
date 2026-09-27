@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import { updatePetProfile } from '@/api/auth';
+import { PetDateOfBirthField } from '@/components/profile/PetDateOfBirthField';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { compressImage } from '@/lib/compressImage';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -42,6 +43,9 @@ export function EditPetProfileModal({ visible, pet, onClose, onSuccess }: Props)
   const [previewUrl, setPreviewUrl] = useState(pet.profile_image_url || '');
   const [avatarData, setAvatarData] = useState<string | null>(null);
   const [removeAvatar, setRemoveAvatar] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState<string | undefined>(
+    pet.date_of_birth ?? undefined
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -55,6 +59,7 @@ export function EditPetProfileModal({ visible, pet, onClose, onSuccess }: Props)
     setPreviewUrl(pet.profile_image_url || '');
     setAvatarData(null);
     setRemoveAvatar(false);
+    setDateOfBirth(pet.date_of_birth ?? undefined);
   }, [visible, pet]);
 
   async function pickPhoto() {
@@ -92,6 +97,7 @@ export function EditPetProfileModal({ visible, pet, onClose, onSuccess }: Props)
         city: city.trim(),
         bio: bio.trim(),
         personalityTags,
+        dateOfBirth: dateOfBirth ?? null,
         ...(removeAvatar
           ? { removeAvatar: true, avatarData: '' }
           : avatarData
@@ -152,6 +158,7 @@ export function EditPetProfileModal({ visible, pet, onClose, onSuccess }: Props)
           <Field label="Username Handle" value={username} onChangeText={setUsername} placeholder="e.g. bruno_the_lab" />
           <Field label="Breed" value={breed} onChangeText={setBreed} />
           <Field label="City" value={city} onChangeText={setCity} />
+          <PetDateOfBirthField value={dateOfBirth} onChange={setDateOfBirth} />
           <Field
             label="Personality Tags (comma separated)"
             value={tagsText}

@@ -1,0 +1,17 @@
+diff --git a/node_modules/@expo/ui/android/src/main/java/expo/modules/ui/ExpoUIModule.kt b/node_modules/@expo/ui/android/src/main/java/expo/modules/ui/ExpoUIModule.kt
+index f7f0d1b..03ae8c1 100644
+--- a/node_modules/@expo/ui/android/src/main/java/expo/modules/ui/ExpoUIModule.kt
++++ b/node_modules/@expo/ui/android/src/main/java/expo/modules/ui/ExpoUIModule.kt
+@@ -76,7 +76,11 @@ class ExpoUIModule : Module() {
+       // `RNHostView` publishes its content origin into a process-global registry keyed by view tag.
+       // Tags restart in the next app context, so an entry whose view was never torn down would be
+       // read by an unrelated view after a reload.
+-      NativeStatePropsGetter().clearAllContentOrigins()
++      try {
++        NativeStatePropsGetter().clearAllContentOrigins()
++      } catch (_: UnsatisfiedLinkError) {
++        // During dev reload, Fabric JNI may already be unloaded before module teardown.
++      }
+ 
+       imageLoader?.close()
+       imageLoader = null

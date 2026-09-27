@@ -19,6 +19,7 @@ import {
 
 import { checkUsername } from '@/api/auth';
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
+import { PetDateOfBirthField } from '@/components/profile/PetDateOfBirthField';
 import { BREEDS_BY_PET_TYPE, PET_TYPE_OPTIONS } from '@/constants/petData';
 import { AppFonts, palette, TapTarget } from '@/constants/theme';
 import { compressImage } from '@/lib/compressImage';
@@ -39,6 +40,12 @@ export default function JoinProfileScreen() {
   const setOnboardingData = useAuthStore((s) => s.setOnboardingData);
   const role = onboardingData?.role || 'parent';
 
+  const [parentName, setParentName] = useState(onboardingData?.parentName || '');
+  const [termsAccepted, setTermsAccepted] = useState(onboardingData?.termsAccepted ?? false);
+  const [marketingOptIn, setMarketingOptIn] = useState(onboardingData?.marketingOptIn ?? false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [marketingModalOpen, setMarketingModalOpen] = useState(false);
+
   const [petName, setPetName] = useState(onboardingData?.petName || '');
   const [petUsername, setPetUsername] = useState(onboardingData?.petUsername || '');
   const [petType, setPetType] = useState(onboardingData?.petType || '');
@@ -47,6 +54,7 @@ export default function JoinProfileScreen() {
   const [customBreed, setCustomBreed] = useState(onboardingData?.customBreed || '');
   const [gender, setGender] = useState<'male' | 'female' | 'unknown'>(onboardingData?.gender || 'unknown');
   const [city, setCity] = useState(onboardingData?.city || '');
+  const [dateOfBirth, setDateOfBirth] = useState<string | undefined>(onboardingData?.dateOfBirth);
   const [displayName, setDisplayName] = useState(onboardingData?.petName || '');
   const [loverUsername, setLoverUsername] = useState(onboardingData?.petUsername || '');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(onboardingData?.avatarData || null);
@@ -100,11 +108,18 @@ export default function JoinProfileScreen() {
     }
   }
 
+  const consentFields = {
+    parentName: parentName.trim(),
+    termsAccepted: termsAccepted ? (true as const) : undefined,
+    marketingOptIn,
+  };
+
   function persistProfile() {
     if (role === 'parent') {
       const resolvedPetType = petType === 'other' ? customPetType || 'Other' : petType;
       const resolvedBreed = breed === 'Other' ? customBreed || 'Other' : breed || 'Unknown';
       setOnboardingData({
+        ...consentFields,
         petName,
         petUsername: petUsername.trim() || undefined,
         petType: resolvedPetType,
@@ -113,10 +128,12 @@ export default function JoinProfileScreen() {
         customBreed: breed === 'Other' ? customBreed : undefined,
         gender,
         city,
+        dateOfBirth,
         avatarData: avatarPreview || undefined,
       });
     } else {
       setOnboardingData({
+        ...consentFields,
         petName: displayName,
         petUsername: loverUsername.trim() || undefined,
         city,
@@ -126,6 +143,7 @@ export default function JoinProfileScreen() {
   }
 
   function canContinue() {
+    if (parentName.trim().length < 2 || !termsAccepted) return false;
     if (checkingUsername || usernameAvailable === false) return false;
     if (handleUsername.length > 0 && handleUsername.length < 3) return false;
     if (role === 'parent') {
@@ -302,6 +320,8 @@ export default function JoinProfileScreen() {
                   ))}
                 </View>
 
+                <PetDateOfBirthField value={dateOfBirth} onChange={setDateOfBirth} />
+
                 <Text style={styles.label}>City</Text>
                 <View>
                   <TextInput
@@ -359,6 +379,43 @@ export default function JoinProfileScreen() {
               </>
             )}
 
+            <Text style={styles.label}>{role === 'parent' ? 'Pet Parent Name' : 'Your name'}</Text>
+            <TextInput
+              value={parentName}
+              onChangeText={setParentName}
+              placeholder="Your full name"
+              placeholderTextColor={palette.border}
+              style={styles.input}
+            />
+
+            <Pressable onPress={() => setTermsAccepted((v) => !v)} style={styles.checkRow}>
+              <Ionicons
+                name={termsAccepted ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={termsAccepted ? palette.brown : palette.faded}
+              />
+              <Text style={styles.checkText}>
+                I agree to the{' '}
+                <Text style={styles.checkLink} onPress={() => setTermsModalOpen(true)}>
+                  Terms of Service
+                </Text>
+              </Text>
+            </Pressable>
+
+            <Pressable onPress={() => setMarketingOptIn((v) => !v)} style={styles.checkRow}>
+              <Ionicons
+                name={marketingOptIn ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={marketingOptIn ? palette.brown : palette.faded}
+              />
+              <Text style={styles.checkText}>
+                Send me occasional Furlo updates{' '}
+                <Text style={styles.checkLink} onPress={() => setMarketingModalOpen(true)}>
+                  (optional)
+                </Text>
+              </Text>
+            </Pressable>
+
             <Pressable
               onPress={handleContinue}
               disabled={!canContinue()}
@@ -372,6 +429,43 @@ export default function JoinProfileScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={termsModalOpen} animationType="fade" transparent>
+        <Pressable style={styles.modalScrim} onPress={() => setTermsModalOpen(false)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Terms of Service</Text>
+              <Pressable onPress={() => setTermsModalOpen(false)} hitSlop={8}>
+                <Ionicons name="close" size={24} color={palette.forest} />
+              </Pressable>
+            </View>
+            <Text style={styles.modalBody}>
+              By using Furlo you agree to our community guidelines, acceptable use, and privacy practices. You must be
+              18+ or have guardian consent to register.
+            </Text>
+            <Pressable onPress={() => router.push('/terms')}>
+              <Text style={styles.modalLink}>Read full Terms of Service</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={marketingModalOpen} animationType="fade" transparent>
+        <Pressable style={styles.modalScrim} onPress={() => setMarketingModalOpen(false)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Marketing emails</Text>
+              <Pressable onPress={() => setMarketingModalOpen(false)} hitSlop={8}>
+                <Ionicons name="close" size={24} color={palette.forest} />
+              </Pressable>
+            </View>
+            <Text style={styles.modalBody}>
+              If you opt in, we may email you about Furlo features, pet-care tips, and community highlights — typically
+              a few messages per month. You can unsubscribe anytime.
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal visible={breedOpen} animationType="slide" transparent>
         <Pressable style={styles.modalScrim} onPress={() => setBreedOpen(false)}>
@@ -603,4 +697,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalRowText: { fontFamily: AppFonts.body, fontSize: 14, color: palette.ink },
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 4 },
+  checkText: { flex: 1, fontFamily: AppFonts.body, fontSize: 13, lineHeight: 20, color: palette.muted },
+  checkLink: { fontFamily: AppFonts.bodySemi, color: palette.brown, textDecorationLine: 'underline' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalBody: { fontFamily: AppFonts.body, fontSize: 14, lineHeight: 22, color: palette.muted },
+  modalLink: {
+    fontFamily: AppFonts.bodySemi,
+    fontSize: 14,
+    color: palette.brown,
+    textDecorationLine: 'underline',
+    marginTop: 8,
+  },
 });
